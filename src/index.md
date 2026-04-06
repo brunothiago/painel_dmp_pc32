@@ -6,6 +6,7 @@ toc: false
 ```js
 import * as Plot from "@observablehq/plot";
 import * as XLSX from "xlsx";
+import {html} from "htl";
 import {dsvFormat} from "d3-dsv";
 import {metricGrid} from "./components/cards.js";
 import {cascadeChart, getUrgenciaBucket, matchesCascadeSelection} from "./components/cascade-chart.js";
@@ -571,6 +572,9 @@ const pageNum = view(makeTableControls(tableData, totalPages, PAGE_SIZE));
 ```js
 const pageData = tableData.slice((pageNum - 1) * PAGE_SIZE, pageNum * PAGE_SIZE);
 const dateCol = d => d || "—";
+const tciLinkCol = d => d
+  ? html`<a href=${`https://saci.cidades.gov.br/contratos/${d}`} target="_blank" rel="noopener noreferrer">${d}</a>`
+  : "—";
 display(Inputs.table(pageData, {
   columns: exportColumns,
   select: false,
@@ -584,6 +588,7 @@ display(Inputs.table(pageData, {
     dt_inicio_obra: "Início Obra", vlr_repasse: "Repasse (R$)",
   },
   format: {
+    cod_tci: tciLinkCol,
     vlr_repasse: d => d.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
     dt_assinatura: dateCol, dt_lae: dateCol, dt_pub_licitacao: dateCol,
     dt_homolog_licitacao: dateCol, dt_vrpl: dateCol, dt_aio: dateCol,
