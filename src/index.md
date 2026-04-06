@@ -414,8 +414,8 @@ const tableData = data.filter(d => matchesCascadeSelection(d, selectedCascade, t
 const totalPages = Math.max(1, Math.ceil(tableData.length / PAGE_SIZE));
 const exportColumns = [
   "num_convenio", "cod_tci", "secretaria", "fase", "modalidade",
-  "situacao", "situacao_suspensiva", "dt_vencimento_suspensiva", "dt_retirada_suspensiva",
-  "dt_assinatura", "dt_lae", "dt_pub_licitacao", "dt_homolog_licitacao",
+  "situacao", "situacao_suspensiva", "dt_assinatura", "dt_vencimento_suspensiva",
+  "dt_retirada_suspensiva", "dt_lae", "dt_pub_licitacao", "dt_homolog_licitacao",
   "dt_vrpl", "dt_aio", "dt_inicio_obra", "vlr_repasse",
 ];
 const exportHeaders = {
