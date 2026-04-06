@@ -573,6 +573,7 @@ const pageData = tableData.slice((pageNum - 1) * PAGE_SIZE, pageNum * PAGE_SIZE)
 const dateCol = d => d || "—";
 display(Inputs.table(pageData, {
   columns: exportColumns,
+  select: false,
   header: {
     num_convenio: "Convênio", cod_tci: "TCI", secretaria: "Secretaria",
     fase: "Fase", modalidade: "Modalidade", situacao: "Situação Contrato",
