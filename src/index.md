@@ -164,6 +164,38 @@ function makeClickableChart(plotEl, items, keyField) {
 ```
 
 ```js
+// ── data final: baseData + seleção dos gráficos
+const data = baseData.filter(d =>
+  (selectedSituacao == null || d.situacao === selectedSituacao) &&
+  (selectedSuspensiva == null || d.situacao_suspensiva === selectedSuspensiva)
+);
+
+const total = data.length;
+const comSuspensiva = data.filter(d => d.situacao === "Contratado - Suspensiva").length;
+const semSuspensiva = data.filter(d => d.situacao === "Contratado - Normal").length;
+const vlrTotal = data.reduce((s, d) => s + d.vlr_repasse, 0);
+const pctSuspensiva = total > 0 ? comSuspensiva / total : 0;
+const secretariaDrillField = fSecretaria === "Todas" ? "secretaria" : "modalidade";
+const secretariaDrillLabel = secretariaDrillField === "secretaria" ? "Secretaria" : "Modalidade";
+const secretariaDrillMarginLeft = secretariaDrillField === "secretaria" ? 90 : 240;
+const secretariaDrillData = [...new Set(
+  data
+    .map(d => d[secretariaDrillField])
+    .filter(Boolean)
+)]
+  .map((group) => {
+    const rows = data.filter(d => d[secretariaDrillField] === group);
+    return {
+      group,
+      contratos: rows.length,
+      vlr_repasse: rows.reduce((sum, d) => sum + d.vlr_repasse, 0),
+    };
+  })
+  .filter(d => d.contratos > 0)
+  .sort((a, b) => b.contratos - a.contratos || b.vlr_repasse - a.vlr_repasse);
+```
+
+```js
 display(metricGrid([
   { label: "Total selecionadas", value: formatNumber(total), tone: "default" },
   { label: "Com suspensiva", value: formatNumber(comSuspensiva), detail: formatPercent(pctSuspensiva) + " do total", tone: "gold" },
@@ -171,6 +203,82 @@ display(metricGrid([
   { label: "Valor total de repasse", value: formatCurrencyCompact(vlrTotal), tone: "blue" },
 ]));
 ```
+
+<div class="grid-two">
+
+<div class="card">
+
+## Contratos por ${secretariaDrillLabel}
+
+<p>Distribuição da quantidade de contratos na seleção atual</p>
+
+```js
+display(Plot.plot({
+  marginLeft: secretariaDrillMarginLeft,
+  marginRight: 90,
+  height: Math.max(180, secretariaDrillData.length * 52 + 40),
+  style: { fontFamily: "var(--font-sans, IBM Plex Sans, sans-serif)", fontSize: 13 },
+  x: { label: null, grid: false, axis: null },
+  y: { label: null, domain: secretariaDrillData.map(d => d.group) },
+  marks: [
+    Plot.barX(secretariaDrillData, {
+      x: "contratos",
+      y: "group",
+      fill: "#356c8c",
+      rx: 6,
+    }),
+    Plot.text(secretariaDrillData, {
+      x: "contratos",
+      y: "group",
+      text: d => formatNumber(d.contratos),
+      dx: 6,
+      textAnchor: "start",
+      fontSize: 12,
+      fill: "#5b6470",
+    }),
+  ],
+}));
+```
+
+</div>
+
+<div class="card">
+
+## Repasse por ${secretariaDrillLabel}
+
+<p>Distribuição do valor total de repasse na seleção atual</p>
+
+```js
+display(Plot.plot({
+  marginLeft: secretariaDrillMarginLeft,
+  marginRight: 110,
+  height: Math.max(180, secretariaDrillData.length * 52 + 40),
+  style: { fontFamily: "var(--font-sans, IBM Plex Sans, sans-serif)", fontSize: 13 },
+  x: { label: null, grid: false, axis: null },
+  y: { label: null, domain: secretariaDrillData.map(d => d.group) },
+  marks: [
+    Plot.barX(secretariaDrillData, {
+      x: "vlr_repasse",
+      y: "group",
+      fill: "#0f766e",
+      rx: 6,
+    }),
+    Plot.text(secretariaDrillData, {
+      x: "vlr_repasse",
+      y: "group",
+      text: d => formatCurrencyCompact(d.vlr_repasse),
+      dx: 6,
+      textAnchor: "start",
+      fontSize: 12,
+      fill: "#5b6470",
+    }),
+  ],
+}));
+```
+
+</div>
+
+</div>
 
 <div class="grid-two">
 
@@ -239,20 +347,6 @@ const selectedSuspensiva = view(makeClickableChart(
 </div>
 
 </div>
-
-```js
-// ── data final: baseData + seleção dos gráficos
-const data = baseData.filter(d =>
-  (selectedSituacao == null || d.situacao === selectedSituacao) &&
-  (selectedSuspensiva == null || d.situacao_suspensiva === selectedSuspensiva)
-);
-
-const total = data.length;
-const comSuspensiva = data.filter(d => d.situacao === "Contratado - Suspensiva").length;
-const semSuspensiva = data.filter(d => d.situacao === "Contratado - Normal").length;
-const vlrTotal = data.reduce((s, d) => s + d.vlr_repasse, 0);
-const pctSuspensiva = total > 0 ? comSuspensiva / total : 0;
-```
 
 <div class="card">
 
