@@ -231,8 +231,8 @@ function getDeadlineBucket(deadline, today = new Date()) {
 }
 
 function getPrazoPublicacao(d) {
-  if (!d.dt_lae) return null;
-  return toIsoDate(addDays(parseUtcDate(d.dt_lae), 120));
+  if (!d.dt_retirada_suspensiva) return null;
+  return toIsoDate(addDays(parseUtcDate(d.dt_retirada_suspensiva), 120));
 }
 
 function getPrazoHomologacao(d) {
@@ -241,7 +241,7 @@ function getPrazoHomologacao(d) {
 }
 
 function getStatusPublicacao(d, today = new Date()) {
-  if (!d.dt_lae || d.situacao === "Cancelado ou Distratado") return null;
+  if (!d.dt_retirada_suspensiva || d.situacao === "Cancelado ou Distratado") return null;
   const prazo = getPrazoPublicacao(d);
   if (d.dt_pub_licitacao) {
     return parseUtcDate(d.dt_pub_licitacao) <= parseUtcDate(prazo)
@@ -394,7 +394,7 @@ function makeFlowConnector(label) {
 function matchesLicitacaoSelection(d, selection = {}) {
   return (
     (selection.pub_etapa == null ||
-      (selection.pub_etapa === "Aguardando publicação" ? !d.dt_pub_licitacao && !!d.dt_lae : !!d.dt_pub_licitacao)) &&
+      (selection.pub_etapa === "Aguardando publicação" ? !d.dt_pub_licitacao && !!d.dt_retirada_suspensiva : !!d.dt_pub_licitacao)) &&
     (selection.pub_prazo == null ||
       (!d.dt_pub_licitacao && d.status_pub_licitacao === selection.pub_prazo)) &&
     (selection.homolog_etapa == null ||
@@ -433,7 +433,7 @@ function renderLicitacaoFlow(data, today = new Date()) {
     container.append(clear);
 
     const base = data
-      .filter(d => d.dt_lae && d.situacao !== "Cancelado ou Distratado")
+      .filter(d => d.dt_retirada_suspensiva && d.situacao !== "Cancelado ou Distratado")
       .filter(d => matchesLicitacaoSelection(d, container.value));
 
     if (base.length === 0) {
@@ -445,7 +445,7 @@ function renderLicitacaoFlow(data, today = new Date()) {
     const publicadas = base.filter(d => d.dt_pub_licitacao);
     container.append(
       makeFlowLevel(
-        `${base.length.toLocaleString("pt-BR")} contratos com LAE`,
+        `${base.length.toLocaleString("pt-BR")} contratos com retirada de suspensiva`,
         "por etapa da publicação da licitação",
         [
           { label: "Aguardando publicação", qtd: aguardandoPublicacao.length, color: LICITACAO_CORES["Aguardando publicação"] },
@@ -461,7 +461,7 @@ function renderLicitacaoFlow(data, today = new Date()) {
     );
 
     if (aguardandoPublicacao.length > 0) {
-      container.append(makeFlowConnector("publicação até 120 dias após LAE"));
+      container.append(makeFlowConnector("publicação até 120 dias após a retirada da suspensiva"));
       container.append(
         makeFlowLevel(
           `${aguardandoPublicacao.length.toLocaleString("pt-BR")} contratos aguardando publicação`,
@@ -528,6 +528,14 @@ function renderLicitacaoFlow(data, today = new Date()) {
 
   render();
   return container;
+}
+
+function matchesCasaCivilSelection(d, selection = null) {
+  return selection == null || d.status_regra_casa_civil === selection;
+}
+
+function matchesInicioObraSelection(d, selection = null) {
+  return selection == null || d.status_inicio_obra === selection;
 }
 ```
 
@@ -763,10 +771,10 @@ const selectedCascade = view(cascadeChart(data, today));
 
 ## Análise de Licitação — Prazos de publicação e homologação
 
-<p>Publicação até 120 dias após LAE; homologação até 120 dias após a publicação da licitação.</p>
+<p>Publicação até 120 dias após a retirada da suspensiva; homologação até 120 dias após a publicação da licitação.</p>
 
 ```js
-const licitacaoBase = data.filter(d => d.dt_lae && d.situacao !== "Cancelado ou Distratado");
+const licitacaoBase = data.filter(d => d.dt_retirada_suspensiva && d.situacao !== "Cancelado ou Distratado");
 const aguardandoPublicacao = licitacaoBase.filter(d => !d.dt_pub_licitacao);
 const publicacaoVencida = aguardandoPublicacao.filter(d => d.status_pub_licitacao === "Vencida").length;
 const publicacaoProx30 = aguardandoPublicacao.filter(d => d.status_pub_licitacao === "Próximos 30 dias").length;
@@ -781,9 +789,9 @@ const cumprimentoCasaCivil = [
 ].filter(d => d.qtd > 0);
 
 display(metricGrid([
-  { label: "Com LAE", value: formatNumber(licitacaoBase.length), tone: "default" },
-  { label: "Aguardando publicação", value: formatNumber(aguardandoPublicacao.length), detail: formatPercent(licitacaoBase.length > 0 ? aguardandoPublicacao.length / licitacaoBase.length : 0) + " com LAE", tone: "gold" },
-  { label: "Publicação vencida", value: formatNumber(publicacaoVencida), detail: "prazo de 120 dias após LAE", tone: "red" },
+  { label: "Com retirada de suspensiva", value: formatNumber(licitacaoBase.length), tone: "default" },
+  { label: "Aguardando publicação", value: formatNumber(aguardandoPublicacao.length), detail: formatPercent(licitacaoBase.length > 0 ? aguardandoPublicacao.length / licitacaoBase.length : 0) + " com retirada de suspensiva", tone: "gold" },
+  { label: "Publicação vencida", value: formatNumber(publicacaoVencida), detail: "prazo de 120 dias após retirada da suspensiva", tone: "red" },
   { label: "Publicação nos próximos 30 dias", value: formatNumber(publicacaoProx30), tone: "gold" },
   { label: "Homologação vencida", value: formatNumber(homologacaoVencida), detail: "prazo de 120 dias após publicação", tone: "red" },
   { label: "Homologação nos próximos 30 dias", value: formatNumber(homologacaoProx30), tone: "gold" },
@@ -793,31 +801,34 @@ display(metricGrid([
 <p>Cumprimento do prazo da Casa Civil para publicação do edital, conclusão da licitação e emissão da ordem de serviço até 31/03/2026.</p>
 
 ```js
-display(Plot.plot({
-  marginLeft: 140,
-  marginRight: 50,
-  height: Math.max(160, cumprimentoCasaCivil.length * 44 + 36),
-  style: { fontFamily: "var(--font-sans, IBM Plex Sans, sans-serif)", fontSize: 13 },
-  x: { label: "Contratos", grid: true },
-  y: { label: null, domain: cumprimentoCasaCivil.map(d => d.status) },
-  marks: [
-    Plot.barX(cumprimentoCasaCivil, {
-      x: "qtd",
-      y: "status",
-      fill: "color",
-      rx: 6,
-    }),
-    Plot.text(cumprimentoCasaCivil, {
-      x: "qtd",
-      y: "status",
-      text: d => formatNumber(d.qtd),
-      dx: 6,
-      textAnchor: "start",
-      fontSize: 12,
-      fill: "#5b6470",
-    }),
-  ],
-}));
+const selectedCasaCivil = view(makeClickableChart(
+  Plot.plot({
+    marginLeft: 140,
+    marginRight: 50,
+    height: Math.max(160, cumprimentoCasaCivil.length * 44 + 36),
+    style: { fontFamily: "var(--font-sans, IBM Plex Sans, sans-serif)", fontSize: 13 },
+    x: { label: "Contratos", grid: true },
+    y: { label: null, domain: cumprimentoCasaCivil.map(d => d.status) },
+    marks: [
+      Plot.barX(cumprimentoCasaCivil, {
+        x: "qtd",
+        y: "status",
+        fill: "color",
+        rx: 6,
+      }),
+      Plot.text(cumprimentoCasaCivil, {
+        x: "qtd",
+        y: "status",
+        text: d => formatNumber(d.qtd),
+        dx: 6,
+        textAnchor: "start",
+        fontSize: 12,
+        fill: "#5b6470",
+      }),
+    ],
+  }),
+  cumprimentoCasaCivil, "status"
+));
 ```
 
 ```js
@@ -878,31 +889,34 @@ display(metricGrid([
 ```
 
 ```js
-display(Plot.plot({
-  marginLeft: 160,
-  marginRight: 50,
-  height: Math.max(170, inicioObraChart.length * 44 + 36),
-  style: { fontFamily: "var(--font-sans, IBM Plex Sans, sans-serif)", fontSize: 13 },
-  x: { label: "Contratos", grid: true },
-  y: { label: null, domain: inicioObraChart.map(d => d.status) },
-  marks: [
-    Plot.barX(inicioObraChart, {
-      x: "qtd",
-      y: "status",
-      fill: "color",
-      rx: 6,
-    }),
-    Plot.text(inicioObraChart, {
-      x: "qtd",
-      y: "status",
-      text: d => formatNumber(d.qtd),
-      dx: 6,
-      textAnchor: "start",
-      fontSize: 12,
-      fill: "#5b6470",
-    }),
-  ],
-}));
+const selectedInicioObra = view(makeClickableChart(
+  Plot.plot({
+    marginLeft: 160,
+    marginRight: 50,
+    height: Math.max(170, inicioObraChart.length * 44 + 36),
+    style: { fontFamily: "var(--font-sans, IBM Plex Sans, sans-serif)", fontSize: 13 },
+    x: { label: "Contratos", grid: true },
+    y: { label: null, domain: inicioObraChart.map(d => d.status) },
+    marks: [
+      Plot.barX(inicioObraChart, {
+        x: "qtd",
+        y: "status",
+        fill: "color",
+        rx: 6,
+      }),
+      Plot.text(inicioObraChart, {
+        x: "qtd",
+        y: "status",
+        text: d => formatNumber(d.qtd),
+        dx: 6,
+        textAnchor: "start",
+        fontSize: 12,
+        fill: "#5b6470",
+      }),
+    ],
+  }),
+  inicioObraChart, "status"
+));
 ```
 
 ```js
@@ -933,7 +947,9 @@ if (inicioPrazoVencido > 0 || inicioProx10 > 0) {
 const PAGE_SIZE = 50;
 const tableData = data.filter(d =>
   matchesCascadeSelection(d, selectedCascade, today) &&
-  matchesLicitacaoSelection(d, selectedLicitacao)
+  matchesLicitacaoSelection(d, selectedLicitacao) &&
+  matchesCasaCivilSelection(d, selectedCasaCivil) &&
+  matchesInicioObraSelection(d, selectedInicioObra)
 );
 
 const totalPages = Math.max(1, Math.ceil(tableData.length / PAGE_SIZE));
