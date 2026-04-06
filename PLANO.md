@@ -1,4 +1,4 @@
-# Plano — Painel PC 32 CGDI
+# Plano — Painel PC 32 CGPAC
 
 ## Visão Geral
 
@@ -128,4 +128,4 @@ Tabela com `Inputs.table` contendo todas as colunas principais:
 
 ## Referência
 
-Projeto base de estilo: `painel_planos_cgdi` (mesma estrutura de config, tema, formatters).
+Projeto base de estilo: `painel_planos_CGPAC` (mesma estrutura de config, tema, formatters).

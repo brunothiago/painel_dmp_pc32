@@ -35,6 +35,26 @@ const rawData = dsv.parse(rawText, (d) => ({
 }));
 
 const secretarias = [...new Set(rawData.map(d => d.secretaria).filter(Boolean))].sort();
+const updatedAt = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+}).format(new Date());
+```
+
+```js
+const pageTitleBar = document.createElement("div");
+pageTitleBar.className = "page-titlebar";
+pageTitleBar.innerHTML = `
+  <div class="page-titlebar__heading">
+    <h1>Painel PC 32 — Novo PAC Seleção</h1>
+  </div>
+  <div class="page-titlebar__meta" aria-label="Data de atualização">
+    <span class="page-titlebar__meta-label">Atualizado em</span>
+    <strong class="page-titlebar__meta-value">${updatedAt}</strong>
+  </div>
+`;
+display(pageTitleBar);
 ```
 
 <div class="filters-bar">

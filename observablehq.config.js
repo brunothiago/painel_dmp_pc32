@@ -25,7 +25,7 @@ export default {
           <a class="brand-home" href="./" aria-label="Painel PC 32 — Novo PAC">
             <img class="brand-logo" src="./logos/logo_mcid.png" alt="Ministério das Cidades">
             <div class="brand-text">
-              <span class="brand-kicker">Ministério das Cidades · CGDI</span>
+              <span class="brand-kicker">Ministério das Cidades · CGPAC</span>
               <span class="brand-title">Painel PC 32 — Novo PAC Seleção</span>
             </div>
           </a>
@@ -38,8 +38,8 @@ export default {
       <hr class="page-note-divider" style="margin-top:0">
       <div class="footer-content">
         <div class="footer-info">
-          <p>Acompanhamento dos contratos da Prestação de Contas 32 — Novo PAC Seleção.</p>
-          <p>Fonte: CGDI / Ministério das Cidades</p>
+          <p>Acompanhamento dos contratos da <a href="https://www.gov.br/transferegov/pt-br/legislacao/portarias/portaria-conjunta-mgi-mf-cgu-no-32-de-4-de-junho-de-2024" target="_blank" rel="noopener noreferrer">Portaria Conjunta 32</a> — Novo PAC Seleção.</p>
+          <p>Fonte: CGPAC / Ministério das Cidades</p>
         </div>
         <img class="footer-logo" src="./logos/logo_mcid.png" alt="Logo do Ministério das Cidades">
       </div>
