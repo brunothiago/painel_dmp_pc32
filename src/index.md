@@ -185,6 +185,7 @@ function makeClickableChart(plotEl, items, keyField) {
 
 const today = new Date();
 const DAY_MS = 24 * 60 * 60 * 1000;
+const DATA_LIMITE_LICITACAO_CASA_CIVIL = "2026-03-31";
 const LICITACAO_PRAZO_ORDER = ["Vencida", "Próximos 30 dias", "No prazo"];
 const LICITACAO_CORES = {
   "Aguardando publicação": "#b45309",
@@ -203,6 +204,17 @@ function parseUtcDate(value) {
 function addDays(date, days) {
   const next = new Date(date);
   next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function addBusinessDays(date, businessDays) {
+  const next = new Date(date);
+  let added = 0;
+  while (added < businessDays) {
+    next.setUTCDate(next.getUTCDate() + 1);
+    const day = next.getUTCDay();
+    if (day !== 0 && day !== 6) added += 1;
+  }
   return next;
 }
 
@@ -249,6 +261,50 @@ function getStatusHomologacao(d, today = new Date()) {
       : "Concluída em atraso";
   }
   return getDeadlineBucket(prazo, today);
+}
+
+function getStatusRegraCasaCivil(d) {
+  if (d.situacao === "Cancelado ou Distratado") return "Fora do escopo";
+  const limite = parseUtcDate(DATA_LIMITE_LICITACAO_CASA_CIVIL);
+  const pubOk = d.dt_pub_licitacao && parseUtcDate(d.dt_pub_licitacao) <= limite;
+  const homologOk = d.dt_homolog_licitacao && parseUtcDate(d.dt_homolog_licitacao) <= limite;
+  const osOk = d.dt_inicio_obra && parseUtcDate(d.dt_inicio_obra) <= limite;
+  return pubOk && homologOk && osOk ? "Cumpriu" : "Não cumpriu";
+}
+
+function countBusinessDaysRemaining(start, end) {
+  if (!start || !end) return null;
+  const cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+  const target = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()));
+  let count = 0;
+  const step = cursor <= target ? 1 : -1;
+
+  while (cursor.getTime() !== target.getTime()) {
+    cursor.setUTCDate(cursor.getUTCDate() + step);
+    const day = cursor.getUTCDay();
+    if (day !== 0 && day !== 6) count += step;
+  }
+
+  return count;
+}
+
+function getPrazoInicioObra(d) {
+  if (!d.dt_aio) return null;
+  return toIsoDate(addBusinessDays(parseUtcDate(d.dt_aio), 10));
+}
+
+function getStatusInicioObra(d, today = new Date()) {
+  if (!d.dt_aio || d.situacao === "Cancelado ou Distratado") return null;
+  const prazo = getPrazoInicioObra(d);
+  if (d.dt_inicio_obra) {
+    return parseUtcDate(d.dt_inicio_obra) <= parseUtcDate(prazo)
+      ? "Iniciada no prazo"
+      : "Iniciada em atraso";
+  }
+  const remaining = countBusinessDaysRemaining(today, parseUtcDate(prazo));
+  if (remaining < 0) return "Prazo vencido";
+  if (remaining <= 10) return "Próximos 10 dias úteis";
+  return "No prazo";
 }
 
 function makeFlowElement(tag, className, text) {
@@ -482,10 +538,14 @@ const data = baseData.filter(d =>
   (selectedSuspensiva == null || d.situacao_suspensiva === selectedSuspensiva)
 ).map(d => ({
   ...d,
+  data_limite_licitacao_casa_civil: DATA_LIMITE_LICITACAO_CASA_CIVIL,
+  status_regra_casa_civil: getStatusRegraCasaCivil(d),
   prazo_pub_licitacao: getPrazoPublicacao(d),
   status_pub_licitacao: getStatusPublicacao(d, today),
   prazo_homolog_licitacao: getPrazoHomologacao(d),
   status_homolog_licitacao: getStatusHomologacao(d, today),
+  prazo_inicio_obra: getPrazoInicioObra(d),
+  status_inicio_obra: getStatusInicioObra(d, today),
 }));
 
 const total = data.length;
@@ -714,6 +774,11 @@ const publicadas = licitacaoBase.filter(d => d.dt_pub_licitacao);
 const homologacaoPendente = publicadas.filter(d => !d.dt_homolog_licitacao);
 const homologacaoVencida = homologacaoPendente.filter(d => d.status_homolog_licitacao === "Vencida").length;
 const homologacaoProx30 = homologacaoPendente.filter(d => d.status_homolog_licitacao === "Próximos 30 dias").length;
+const cumprimentoCasaCivil = [
+  { status: "Cumpriu", qtd: licitacaoBase.filter(d => d.status_regra_casa_civil === "Cumpriu").length, color: "#0f766e" },
+  { status: "Não cumpriu", qtd: licitacaoBase.filter(d => d.status_regra_casa_civil === "Não cumpriu").length, color: "#b42318" },
+  { status: "Fora do escopo", qtd: data.filter(d => d.status_regra_casa_civil === "Fora do escopo").length, color: "#6b7280" },
+].filter(d => d.qtd > 0);
 
 display(metricGrid([
   { label: "Com LAE", value: formatNumber(licitacaoBase.length), tone: "default" },
@@ -723,6 +788,36 @@ display(metricGrid([
   { label: "Homologação vencida", value: formatNumber(homologacaoVencida), detail: "prazo de 120 dias após publicação", tone: "red" },
   { label: "Homologação nos próximos 30 dias", value: formatNumber(homologacaoProx30), tone: "gold" },
 ]));
+```
+
+<p>Cumprimento do prazo da Casa Civil para publicação do edital, conclusão da licitação e emissão da ordem de serviço até 31/03/2026.</p>
+
+```js
+display(Plot.plot({
+  marginLeft: 140,
+  marginRight: 50,
+  height: Math.max(160, cumprimentoCasaCivil.length * 44 + 36),
+  style: { fontFamily: "var(--font-sans, IBM Plex Sans, sans-serif)", fontSize: 13 },
+  x: { label: "Contratos", grid: true },
+  y: { label: null, domain: cumprimentoCasaCivil.map(d => d.status) },
+  marks: [
+    Plot.barX(cumprimentoCasaCivil, {
+      x: "qtd",
+      y: "status",
+      fill: "color",
+      rx: 6,
+    }),
+    Plot.text(cumprimentoCasaCivil, {
+      x: "qtd",
+      y: "status",
+      text: d => formatNumber(d.qtd),
+      dx: 6,
+      textAnchor: "start",
+      fontSize: 12,
+      fill: "#5b6470",
+    }),
+  ],
+}));
 ```
 
 ```js
@@ -751,6 +846,85 @@ const selectedLicitacao = view(renderLicitacaoFlow(data, today));
 
 </div>
 
+<div class="card card--inicio-obra-analysis">
+
+## Análise de Início da Obra — Prazo após AIO
+
+<p>Monitoramento do prazo de início da obra: até 10 dias úteis após a data de AIO.</p>
+
+```js
+const inicioObraBase = data.filter(d => d.dt_aio && d.situacao !== "Cancelado ou Distratado");
+const inicioPrazoVencido = inicioObraBase.filter(d => d.status_inicio_obra === "Prazo vencido").length;
+const inicioProx10 = inicioObraBase.filter(d => d.status_inicio_obra === "Próximos 10 dias úteis").length;
+const inicioNoPrazo = inicioObraBase.filter(d => d.status_inicio_obra === "No prazo").length;
+const iniciadaNoPrazo = inicioObraBase.filter(d => d.status_inicio_obra === "Iniciada no prazo").length;
+const iniciadaEmAtraso = inicioObraBase.filter(d => d.status_inicio_obra === "Iniciada em atraso").length;
+const inicioObraChart = [
+  { status: "Iniciada no prazo", qtd: iniciadaNoPrazo, color: "#0f766e" },
+  { status: "Iniciada em atraso", qtd: iniciadaEmAtraso, color: "#b42318" },
+  { status: "No prazo", qtd: inicioNoPrazo, color: "#356c8c" },
+  { status: "Próximos 10 dias úteis", qtd: inicioProx10, color: "#f59e0b" },
+  { status: "Prazo vencido", qtd: inicioPrazoVencido, color: "#b42318" },
+].filter(d => d.qtd > 0);
+
+display(metricGrid([
+  { label: "Com AIO", value: formatNumber(inicioObraBase.length), tone: "default" },
+  { label: "Iniciada no prazo", value: formatNumber(iniciadaNoPrazo), tone: "green" },
+  { label: "Iniciada em atraso", value: formatNumber(iniciadaEmAtraso), tone: "red" },
+  { label: "Prazo vencido", value: formatNumber(inicioPrazoVencido), tone: "red" },
+  { label: "Próximos 10 dias úteis", value: formatNumber(inicioProx10), tone: "gold" },
+  { label: "No prazo", value: formatNumber(inicioNoPrazo), tone: "blue" },
+]));
+```
+
+```js
+display(Plot.plot({
+  marginLeft: 160,
+  marginRight: 50,
+  height: Math.max(170, inicioObraChart.length * 44 + 36),
+  style: { fontFamily: "var(--font-sans, IBM Plex Sans, sans-serif)", fontSize: 13 },
+  x: { label: "Contratos", grid: true },
+  y: { label: null, domain: inicioObraChart.map(d => d.status) },
+  marks: [
+    Plot.barX(inicioObraChart, {
+      x: "qtd",
+      y: "status",
+      fill: "color",
+      rx: 6,
+    }),
+    Plot.text(inicioObraChart, {
+      x: "qtd",
+      y: "status",
+      text: d => formatNumber(d.qtd),
+      dx: 6,
+      textAnchor: "start",
+      fontSize: 12,
+      fill: "#5b6470",
+    }),
+  ],
+}));
+```
+
+```js
+if (inicioPrazoVencido > 0 || inicioProx10 > 0) {
+  const alertEl = document.createElement("div");
+  alertEl.className = "urgency-alert";
+  alertEl.innerHTML = `
+    <div class="urgency-alert__icon">⚠️</div>
+    <div class="urgency-alert__body">
+      <div class="urgency-alert__title">Atenção: início de obra com prazo crítico</div>
+      <div class="urgency-alert__text">
+        ${inicioPrazoVencido > 0 ? `<strong>${formatNumber(inicioPrazoVencido)}</strong> contrato${inicioPrazoVencido > 1 ? "s" : ""} com <strong>prazo vencido</strong> para início da obra. ` : ""}
+        ${inicioProx10 > 0 ? `<strong>${formatNumber(inicioProx10)}</strong> contrato${inicioProx10 > 1 ? "s" : ""} nos <strong>próximos 10 dias úteis</strong> para início da obra.` : ""}
+      </div>
+    </div>
+  `;
+  display(alertEl);
+}
+```
+
+</div>
+
 <div class="table-shell">
 
 ## Base de Dados
@@ -766,9 +940,9 @@ const totalPages = Math.max(1, Math.ceil(tableData.length / PAGE_SIZE));
 const exportColumns = [
   "num_convenio", "cod_tci", "secretaria", "fase", "modalidade",
   "situacao", "situacao_suspensiva", "dt_assinatura", "dt_vencimento_suspensiva",
-  "dt_retirada_suspensiva", "dt_lae", "prazo_pub_licitacao", "status_pub_licitacao",
+  "dt_retirada_suspensiva", "dt_lae", "data_limite_licitacao_casa_civil", "status_regra_casa_civil", "prazo_pub_licitacao", "status_pub_licitacao",
   "dt_pub_licitacao", "prazo_homolog_licitacao", "status_homolog_licitacao", "dt_homolog_licitacao",
-  "dt_vrpl", "dt_aio", "dt_inicio_obra", "vlr_repasse",
+  "dt_vrpl", "dt_aio", "prazo_inicio_obra", "status_inicio_obra", "dt_inicio_obra", "vlr_repasse",
 ];
 const exportHeaders = {
   num_convenio: "Convênio",
@@ -782,6 +956,8 @@ const exportHeaders = {
   dt_retirada_suspensiva: "Retirada Suspensiva",
   dt_assinatura: "Assinatura",
   dt_lae: "LAE",
+  data_limite_licitacao_casa_civil: "Data Limite de Licitação Casa Civil",
+  status_regra_casa_civil: "Cumprimento Regra Casa Civil",
   prazo_pub_licitacao: "Prazo Publicação",
   status_pub_licitacao: "Status Publicação",
   dt_pub_licitacao: "Pub. Licitação",
@@ -790,6 +966,8 @@ const exportHeaders = {
   dt_homolog_licitacao: "Homolog. Licitação",
   dt_vrpl: "VRPL",
   dt_aio: "AIO",
+  prazo_inicio_obra: "Prazo Início Obra",
+  status_inicio_obra: "Status Início Obra",
   dt_inicio_obra: "Início Obra",
   vlr_repasse: "Repasse (R$)",
 };
@@ -874,12 +1052,14 @@ function makeExportButton(rows) {
       "dt_retirada_suspensiva",
       "dt_assinatura",
       "dt_lae",
+      "data_limite_licitacao_casa_civil",
       "prazo_pub_licitacao",
       "dt_pub_licitacao",
       "prazo_homolog_licitacao",
       "dt_homolog_licitacao",
       "dt_vrpl",
       "dt_aio",
+      "prazo_inicio_obra",
       "dt_inicio_obra",
     ]);
 
@@ -940,17 +1120,17 @@ display(Inputs.table(pageData, {
     fase: "Fase", modalidade: "Modalidade", situacao: "Situação Contrato",
     situacao_suspensiva: "Situação Suspensiva",
     dt_vencimento_suspensiva: "Venc. Suspensiva", dt_retirada_suspensiva: "Retirada Suspensiva",
-    dt_assinatura: "Assinatura", dt_lae: "LAE", prazo_pub_licitacao: "Prazo Publicação",
+    dt_assinatura: "Assinatura", dt_lae: "LAE", data_limite_licitacao_casa_civil: "Data Limite de Licitação Casa Civil", status_regra_casa_civil: "Cumprimento Regra Casa Civil", prazo_pub_licitacao: "Prazo Publicação",
     status_pub_licitacao: "Status Publicação", dt_pub_licitacao: "Pub. Licitação",
     prazo_homolog_licitacao: "Prazo Homolog.", status_homolog_licitacao: "Status Homolog.",
-    dt_homolog_licitacao: "Homolog. Licitação", dt_vrpl: "VRPL", dt_aio: "AIO",
+    dt_homolog_licitacao: "Homolog. Licitação", dt_vrpl: "VRPL", dt_aio: "AIO", prazo_inicio_obra: "Prazo Início Obra", status_inicio_obra: "Status Início Obra",
     dt_inicio_obra: "Início Obra", vlr_repasse: "Repasse (R$)",
   },
   format: {
     cod_tci: tciLinkCol,
     vlr_repasse: d => d.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
-    dt_assinatura: dateCol, dt_lae: dateCol, prazo_pub_licitacao: dateCol, dt_pub_licitacao: dateCol,
-    prazo_homolog_licitacao: dateCol,
+    dt_assinatura: dateCol, dt_lae: dateCol, data_limite_licitacao_casa_civil: dateCol, prazo_pub_licitacao: dateCol, dt_pub_licitacao: dateCol,
+    prazo_homolog_licitacao: dateCol, prazo_inicio_obra: dateCol,
     dt_homolog_licitacao: dateCol, dt_vrpl: dateCol, dt_aio: dateCol,
     dt_inicio_obra: dateCol, dt_vencimento_suspensiva: dateCol, dt_retirada_suspensiva: dateCol,
   },

@@ -297,6 +297,10 @@
     background: #f3fbf5;
 }
 
+.card--inicio-obra-analysis {
+    background: #e9f2fb;
+}
+
 .card h2 {
     margin: 0 0 0.3rem;
     font-family: var(--font-serif);
@@ -613,6 +617,10 @@
 
     .card.card--licitacao-analysis {
         background: #f3fbf5;
+    }
+
+    .card.card--inicio-obra-analysis {
+        background: #e9f2fb;
     }
 }
 
