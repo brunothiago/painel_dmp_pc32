@@ -182,6 +182,297 @@ function makeClickableChart(plotEl, items, keyField) {
   wrapper.append(plotEl, badge);
   return input;
 }
+
+const today = new Date();
+const DAY_MS = 24 * 60 * 60 * 1000;
+const LICITACAO_PRAZO_ORDER = ["Vencida", "Próximos 30 dias", "No prazo"];
+const LICITACAO_CORES = {
+  "Aguardando publicação": "#b45309",
+  "Publicada": "#0f766e",
+  "Homologação pendente": "#b45309",
+  "Homologada": "#0f766e",
+  "Vencida": "#b42318",
+  "Próximos 30 dias": "#f59e0b",
+  "No prazo": "#356c8c",
+};
+
+function parseUtcDate(value) {
+  return value ? new Date(`${value}T12:00:00Z`) : null;
+}
+
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function toIsoDate(date) {
+  return date && !Number.isNaN(date.getTime()) ? date.toISOString().slice(0, 10) : null;
+}
+
+function getDeadlineBucket(deadline, today = new Date()) {
+  if (!deadline) return null;
+  const diff = parseUtcDate(deadline) - today;
+  if (diff < 0) return "Vencida";
+  if (diff <= 30 * DAY_MS) return "Próximos 30 dias";
+  return "No prazo";
+}
+
+function getPrazoPublicacao(d) {
+  if (!d.dt_lae) return null;
+  return toIsoDate(addDays(parseUtcDate(d.dt_lae), 120));
+}
+
+function getPrazoHomologacao(d) {
+  if (!d.dt_pub_licitacao) return null;
+  return toIsoDate(addDays(parseUtcDate(d.dt_pub_licitacao), 120));
+}
+
+function getStatusPublicacao(d, today = new Date()) {
+  if (!d.dt_lae || d.situacao === "Cancelado ou Distratado") return null;
+  const prazo = getPrazoPublicacao(d);
+  if (d.dt_pub_licitacao) {
+    return parseUtcDate(d.dt_pub_licitacao) <= parseUtcDate(prazo)
+      ? "Concluída no prazo"
+      : "Concluída em atraso";
+  }
+  return getDeadlineBucket(prazo, today);
+}
+
+function getStatusHomologacao(d, today = new Date()) {
+  if (d.dt_homolog_licitacao && !d.dt_pub_licitacao) return "Inconsistência de base";
+  if (!d.dt_pub_licitacao || d.situacao === "Cancelado ou Distratado") return null;
+  const prazo = getPrazoHomologacao(d);
+  if (d.dt_homolog_licitacao) {
+    return parseUtcDate(d.dt_homolog_licitacao) <= parseUtcDate(prazo)
+      ? "Concluída no prazo"
+      : "Concluída em atraso";
+  }
+  return getDeadlineBucket(prazo, today);
+}
+
+function makeFlowElement(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function makeFlowLevel(title, subtitle, items, total, options = {}) {
+  const {filterKey, selectedValue, onSelect} = options;
+  const wrap = makeFlowElement("div", "casc-level");
+  const header = makeFlowElement("div", "casc-level__header");
+  header.append(
+    makeFlowElement("strong", "casc-level__title", title),
+    makeFlowElement("span", "casc-level__subtitle", subtitle)
+  );
+
+  const filteredItems = items.filter(item => item.qtd > 0);
+  const bar = makeFlowElement("div", "casc-bar");
+  for (const item of filteredItems) {
+    const pct = total > 0 ? (item.qtd / total) * 100 : 0;
+    const seg = makeFlowElement("div", "casc-bar__seg");
+    seg.style.cssText = `width:${pct}%;background:${item.color};`;
+    seg.title = `${item.label}: ${item.qtd.toLocaleString("pt-BR")} (${pct.toFixed(1)}%)`;
+    if (filterKey) {
+      seg.classList.add("is-clickable");
+      if (selectedValue === item.label) seg.classList.add("is-selected");
+      seg.setAttribute("role", "button");
+      seg.tabIndex = 0;
+      seg.addEventListener("click", (event) => {
+        event.stopPropagation();
+        onSelect(filterKey, item.label);
+      });
+      seg.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect(filterKey, item.label);
+        }
+      });
+    }
+    if (pct > 4) seg.append(makeFlowElement("span", "casc-bar__seg-num", item.qtd.toLocaleString("pt-BR")));
+    bar.append(seg);
+  }
+
+  const legend = makeFlowElement("div", "casc-legend");
+  for (const item of filteredItems) {
+    const pct = total > 0 ? (item.qtd / total) * 100 : 0;
+    const row = makeFlowElement("div", "casc-legend__item");
+    if (filterKey) {
+      row.classList.add("is-clickable");
+      if (selectedValue === item.label) row.classList.add("is-selected");
+      row.setAttribute("role", "button");
+      row.tabIndex = 0;
+      row.addEventListener("click", () => onSelect(filterKey, item.label));
+      row.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect(filterKey, item.label);
+        }
+      });
+    }
+    const dot = makeFlowElement("span", "casc-legend__dot");
+    dot.style.background = item.color;
+    const txt = makeFlowElement("span", "casc-legend__text");
+    txt.innerHTML = `<strong>${item.label}</strong> <span>${item.qtd.toLocaleString("pt-BR")}</span>`;
+    const pctEl = makeFlowElement("span", "casc-legend__pct", `${pct.toFixed(1)}%`);
+    pctEl.style.color = item.color;
+    txt.append(pctEl);
+    row.append(dot, txt);
+    legend.append(row);
+  }
+
+  wrap.append(header, bar, legend);
+  return wrap;
+}
+
+function makeFlowConnector(label) {
+  const wrap = makeFlowElement("div", "casc-connector");
+  wrap.append(
+    makeFlowElement("div", "casc-connector__line"),
+    makeFlowElement("span", "casc-connector__label", label)
+  );
+  return wrap;
+}
+
+function matchesLicitacaoSelection(d, selection = {}) {
+  return (
+    (selection.pub_etapa == null ||
+      (selection.pub_etapa === "Aguardando publicação" ? !d.dt_pub_licitacao && !!d.dt_lae : !!d.dt_pub_licitacao)) &&
+    (selection.pub_prazo == null ||
+      (!d.dt_pub_licitacao && d.status_pub_licitacao === selection.pub_prazo)) &&
+    (selection.homolog_etapa == null ||
+      (selection.homolog_etapa === "Homologação pendente" ? !!d.dt_pub_licitacao && !d.dt_homolog_licitacao : !!d.dt_homolog_licitacao)) &&
+    (selection.homolog_prazo == null ||
+      (!!d.dt_pub_licitacao && !d.dt_homolog_licitacao && d.status_homolog_licitacao === selection.homolog_prazo))
+  );
+}
+
+function renderLicitacaoFlow(data, today = new Date()) {
+  const container = Object.assign(makeFlowElement("div", "casc-chart"), {
+    value: {pub_etapa: null, pub_prazo: null, homolog_etapa: null, homolog_prazo: null}
+  });
+
+  function setFilter(key, label) {
+    container.value = {
+      ...container.value,
+      [key]: container.value[key] === label ? null : label
+    };
+    render();
+    container.dispatchEvent(new Event("input", {bubbles: true}));
+  }
+
+  const clear = makeFlowElement("button", "casc-clear", "Limpar seleção");
+  clear.type = "button";
+  clear.hidden = true;
+  clear.addEventListener("click", () => {
+    container.value = {pub_etapa: null, pub_prazo: null, homolog_etapa: null, homolog_prazo: null};
+    render();
+    container.dispatchEvent(new Event("input", {bubbles: true}));
+  });
+
+  function render() {
+    container.innerHTML = "";
+    clear.hidden = !Object.values(container.value).some(Boolean);
+    container.append(clear);
+
+    const base = data
+      .filter(d => d.dt_lae && d.situacao !== "Cancelado ou Distratado")
+      .filter(d => matchesLicitacaoSelection(d, container.value));
+
+    if (base.length === 0) {
+      container.append(makeFlowElement("p", "casc-empty", "Nenhum contrato corresponde à seleção atual na análise de licitação."));
+      return;
+    }
+
+    const aguardandoPublicacao = base.filter(d => !d.dt_pub_licitacao);
+    const publicadas = base.filter(d => d.dt_pub_licitacao);
+    container.append(
+      makeFlowLevel(
+        `${base.length.toLocaleString("pt-BR")} contratos com LAE`,
+        "por etapa da publicação da licitação",
+        [
+          { label: "Aguardando publicação", qtd: aguardandoPublicacao.length, color: LICITACAO_CORES["Aguardando publicação"] },
+          { label: "Publicada", qtd: publicadas.length, color: LICITACAO_CORES["Publicada"] },
+        ],
+        base.length,
+        {
+          filterKey: "pub_etapa",
+          selectedValue: container.value.pub_etapa,
+          onSelect: setFilter
+        }
+      )
+    );
+
+    if (aguardandoPublicacao.length > 0) {
+      container.append(makeFlowConnector("publicação até 120 dias após LAE"));
+      container.append(
+        makeFlowLevel(
+          `${aguardandoPublicacao.length.toLocaleString("pt-BR")} contratos aguardando publicação`,
+          "por urgência do prazo de publicação",
+          LICITACAO_PRAZO_ORDER.map(label => ({
+            label,
+            qtd: aguardandoPublicacao.filter(d => d.status_pub_licitacao === label).length,
+            color: LICITACAO_CORES[label],
+          })),
+          aguardandoPublicacao.length,
+          {
+            filterKey: "pub_prazo",
+            selectedValue: container.value.pub_prazo,
+            onSelect: setFilter
+          }
+        )
+      );
+    }
+
+    if (publicadas.length > 0) {
+      const homologacaoPendente = publicadas.filter(d => !d.dt_homolog_licitacao);
+      const homologadas = publicadas.filter(d => d.dt_homolog_licitacao);
+
+      container.append(makeFlowConnector("homologação até 120 dias após a publicação"));
+      container.append(
+        makeFlowLevel(
+          `${publicadas.length.toLocaleString("pt-BR")} contratos com licitação publicada`,
+          "por etapa da homologação",
+          [
+            { label: "Homologação pendente", qtd: homologacaoPendente.length, color: LICITACAO_CORES["Homologação pendente"] },
+            { label: "Homologada", qtd: homologadas.length, color: LICITACAO_CORES["Homologada"] },
+          ],
+          publicadas.length,
+          {
+            filterKey: "homolog_etapa",
+            selectedValue: container.value.homolog_etapa,
+            onSelect: setFilter
+          }
+        )
+      );
+
+      if (homologacaoPendente.length > 0) {
+        container.append(makeFlowConnector("homologação pendente por urgência do prazo"));
+        container.append(
+          makeFlowLevel(
+            `${homologacaoPendente.length.toLocaleString("pt-BR")} contratos aguardando homologação`,
+            "por urgência do prazo de homologação",
+            LICITACAO_PRAZO_ORDER.map(label => ({
+              label,
+              qtd: homologacaoPendente.filter(d => d.status_homolog_licitacao === label).length,
+              color: LICITACAO_CORES[label],
+            })),
+            homologacaoPendente.length,
+            {
+              filterKey: "homolog_prazo",
+              selectedValue: container.value.homolog_prazo,
+              onSelect: setFilter
+            }
+          )
+        );
+      }
+    }
+  }
+
+  render();
+  return container;
+}
 ```
 
 ```js
@@ -189,7 +480,13 @@ function makeClickableChart(plotEl, items, keyField) {
 const data = baseData.filter(d =>
   (selectedSituacao == null || d.situacao === selectedSituacao) &&
   (selectedSuspensiva == null || d.situacao_suspensiva === selectedSuspensiva)
-);
+).map(d => ({
+  ...d,
+  prazo_pub_licitacao: getPrazoPublicacao(d),
+  status_pub_licitacao: getStatusPublicacao(d, today),
+  prazo_homolog_licitacao: getPrazoHomologacao(d),
+  status_homolog_licitacao: getStatusHomologacao(d, today),
+}));
 
 const total = data.length;
 const comSuspensiva = data.filter(d => d.situacao === "Contratado - Suspensiva").length;
@@ -369,15 +666,13 @@ const selectedSuspensiva = view(makeClickableChart(
 
 </div>
 
-<div class="card">
+<div class="card card--suspensiva-analysis">
 
 ## Análise de Suspensivas — Quebra por etapas
 
 <p>Cascata proporcional: do total à urgência de vencimento</p>
 
 ```js
-const today = new Date();
-
 const comSuspData = data.filter(d => d.situacao === "Contratado - Suspensiva");
 const pendentes = comSuspData.filter(d => !d.dt_retirada_suspensiva);
 const vencida = pendentes.filter(d => getUrgenciaBucket(d, today) === "Vencida").length;
@@ -396,10 +691,62 @@ if (vencida > 0 || prox30 > 0) {
       </div>
     </div>
   `;
-  display(alertEl);
+display(alertEl);
 }
 
 const selectedCascade = view(cascadeChart(data, today));
+```
+
+</div>
+
+<div class="card card--licitacao-analysis">
+
+## Análise de Licitação — Prazos de publicação e homologação
+
+<p>Publicação até 120 dias após LAE; homologação até 120 dias após a publicação da licitação.</p>
+
+```js
+const licitacaoBase = data.filter(d => d.dt_lae && d.situacao !== "Cancelado ou Distratado");
+const aguardandoPublicacao = licitacaoBase.filter(d => !d.dt_pub_licitacao);
+const publicacaoVencida = aguardandoPublicacao.filter(d => d.status_pub_licitacao === "Vencida").length;
+const publicacaoProx30 = aguardandoPublicacao.filter(d => d.status_pub_licitacao === "Próximos 30 dias").length;
+const publicadas = licitacaoBase.filter(d => d.dt_pub_licitacao);
+const homologacaoPendente = publicadas.filter(d => !d.dt_homolog_licitacao);
+const homologacaoVencida = homologacaoPendente.filter(d => d.status_homolog_licitacao === "Vencida").length;
+const homologacaoProx30 = homologacaoPendente.filter(d => d.status_homolog_licitacao === "Próximos 30 dias").length;
+
+display(metricGrid([
+  { label: "Com LAE", value: formatNumber(licitacaoBase.length), tone: "default" },
+  { label: "Aguardando publicação", value: formatNumber(aguardandoPublicacao.length), detail: formatPercent(licitacaoBase.length > 0 ? aguardandoPublicacao.length / licitacaoBase.length : 0) + " com LAE", tone: "gold" },
+  { label: "Publicação vencida", value: formatNumber(publicacaoVencida), detail: "prazo de 120 dias após LAE", tone: "red" },
+  { label: "Publicação nos próximos 30 dias", value: formatNumber(publicacaoProx30), tone: "gold" },
+  { label: "Homologação vencida", value: formatNumber(homologacaoVencida), detail: "prazo de 120 dias após publicação", tone: "red" },
+  { label: "Homologação nos próximos 30 dias", value: formatNumber(homologacaoProx30), tone: "gold" },
+]));
+```
+
+```js
+if (publicacaoVencida > 0 || publicacaoProx30 > 0 || homologacaoVencida > 0 || homologacaoProx30 > 0) {
+  const alertEl = document.createElement("div");
+  alertEl.className = "urgency-alert";
+  alertEl.innerHTML = `
+    <div class="urgency-alert__icon">⚠️</div>
+    <div class="urgency-alert__body">
+      <div class="urgency-alert__title">Atenção: licitações com prazo crítico</div>
+      <div class="urgency-alert__text">
+        ${publicacaoVencida > 0 ? `<strong>${formatNumber(publicacaoVencida)}</strong> contrato${publicacaoVencida > 1 ? "s" : ""} com <strong>publicação vencida</strong>. ` : ""}
+        ${publicacaoProx30 > 0 ? `<strong>${formatNumber(publicacaoProx30)}</strong> contrato${publicacaoProx30 > 1 ? "s" : ""} com publicação nos <strong>próximos 30 dias</strong>. ` : ""}
+        ${homologacaoVencida > 0 ? `<strong>${formatNumber(homologacaoVencida)}</strong> contrato${homologacaoVencida > 1 ? "s" : ""} com <strong>homologação vencida</strong>. ` : ""}
+        ${homologacaoProx30 > 0 ? `<strong>${formatNumber(homologacaoProx30)}</strong> contrato${homologacaoProx30 > 1 ? "s" : ""} com homologação nos <strong>próximos 30 dias</strong>.` : ""}
+      </div>
+    </div>
+  `;
+  display(alertEl);
+}
+```
+
+```js
+const selectedLicitacao = view(renderLicitacaoFlow(data, today));
 ```
 
 </div>
@@ -410,13 +757,17 @@ const selectedCascade = view(cascadeChart(data, today));
 
 ```js
 const PAGE_SIZE = 50;
-const tableData = data.filter(d => matchesCascadeSelection(d, selectedCascade, today));
+const tableData = data.filter(d =>
+  matchesCascadeSelection(d, selectedCascade, today) &&
+  matchesLicitacaoSelection(d, selectedLicitacao)
+);
 
 const totalPages = Math.max(1, Math.ceil(tableData.length / PAGE_SIZE));
 const exportColumns = [
   "num_convenio", "cod_tci", "secretaria", "fase", "modalidade",
   "situacao", "situacao_suspensiva", "dt_assinatura", "dt_vencimento_suspensiva",
-  "dt_retirada_suspensiva", "dt_lae", "dt_pub_licitacao", "dt_homolog_licitacao",
+  "dt_retirada_suspensiva", "dt_lae", "prazo_pub_licitacao", "status_pub_licitacao",
+  "dt_pub_licitacao", "prazo_homolog_licitacao", "status_homolog_licitacao", "dt_homolog_licitacao",
   "dt_vrpl", "dt_aio", "dt_inicio_obra", "vlr_repasse",
 ];
 const exportHeaders = {
@@ -431,7 +782,11 @@ const exportHeaders = {
   dt_retirada_suspensiva: "Retirada Suspensiva",
   dt_assinatura: "Assinatura",
   dt_lae: "LAE",
+  prazo_pub_licitacao: "Prazo Publicação",
+  status_pub_licitacao: "Status Publicação",
   dt_pub_licitacao: "Pub. Licitação",
+  prazo_homolog_licitacao: "Prazo Homolog.",
+  status_homolog_licitacao: "Status Homolog.",
   dt_homolog_licitacao: "Homolog. Licitação",
   dt_vrpl: "VRPL",
   dt_aio: "AIO",
@@ -519,7 +874,9 @@ function makeExportButton(rows) {
       "dt_retirada_suspensiva",
       "dt_assinatura",
       "dt_lae",
+      "prazo_pub_licitacao",
       "dt_pub_licitacao",
+      "prazo_homolog_licitacao",
       "dt_homolog_licitacao",
       "dt_vrpl",
       "dt_aio",
@@ -571,7 +928,7 @@ const pageNum = view(makeTableControls(tableData, totalPages, PAGE_SIZE));
 
 ```js
 const pageData = tableData.slice((pageNum - 1) * PAGE_SIZE, pageNum * PAGE_SIZE);
-const dateCol = d => d || "—";
+const dateCol = d => d ? formatDate(d) : "—";
 const tciLinkCol = d => d
   ? html`<a href=${`https://saci.cidades.gov.br/contratos/${d}`} target="_blank" rel="noopener noreferrer">${d}</a>`
   : "—";
@@ -583,14 +940,17 @@ display(Inputs.table(pageData, {
     fase: "Fase", modalidade: "Modalidade", situacao: "Situação Contrato",
     situacao_suspensiva: "Situação Suspensiva",
     dt_vencimento_suspensiva: "Venc. Suspensiva", dt_retirada_suspensiva: "Retirada Suspensiva",
-    dt_assinatura: "Assinatura", dt_lae: "LAE", dt_pub_licitacao: "Pub. Licitação",
+    dt_assinatura: "Assinatura", dt_lae: "LAE", prazo_pub_licitacao: "Prazo Publicação",
+    status_pub_licitacao: "Status Publicação", dt_pub_licitacao: "Pub. Licitação",
+    prazo_homolog_licitacao: "Prazo Homolog.", status_homolog_licitacao: "Status Homolog.",
     dt_homolog_licitacao: "Homolog. Licitação", dt_vrpl: "VRPL", dt_aio: "AIO",
     dt_inicio_obra: "Início Obra", vlr_repasse: "Repasse (R$)",
   },
   format: {
     cod_tci: tciLinkCol,
     vlr_repasse: d => d.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
-    dt_assinatura: dateCol, dt_lae: dateCol, dt_pub_licitacao: dateCol,
+    dt_assinatura: dateCol, dt_lae: dateCol, prazo_pub_licitacao: dateCol, dt_pub_licitacao: dateCol,
+    prazo_homolog_licitacao: dateCol,
     dt_homolog_licitacao: dateCol, dt_vrpl: dateCol, dt_aio: dateCol,
     dt_inicio_obra: dateCol, dt_vencimento_suspensiva: dateCol, dt_retirada_suspensiva: dateCol,
   },

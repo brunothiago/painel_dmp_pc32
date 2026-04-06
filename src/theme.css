@@ -289,6 +289,14 @@
     min-width: 0;
 }
 
+.card--suspensiva-analysis {
+    background: #fff8f0;
+}
+
+.card--licitacao-analysis {
+    background: #f3fbf5;
+}
+
 .card h2 {
     margin: 0 0 0.3rem;
     font-family: var(--font-serif);
@@ -597,6 +605,14 @@
         background: var(--theme-card-background);
         -webkit-backdrop-filter: blur(14px);
         backdrop-filter: blur(14px);
+    }
+
+    .card.card--suspensiva-analysis {
+        background: #fff8f0;
+    }
+
+    .card.card--licitacao-analysis {
+        background: #f3fbf5;
     }
 }
 
