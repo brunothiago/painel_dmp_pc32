@@ -188,6 +188,7 @@
     box-shadow: 0 22px 60px rgba(20,31,39,0.06);
     padding: 1.1rem 1rem;
     position: relative;
+    overflow: hidden;
 }
 
 .metric-card::before {
