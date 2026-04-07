@@ -267,30 +267,26 @@
 }
 
 .metric-delta {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 1.6rem;
-    padding: 0.16rem 0.5rem;
-    border-radius: 999px;
-    font-size: 0.76rem;
+    display: inline-block;
+    align-self: flex-start;
+    margin-top: -0.2rem;
+    font-size: 0.7rem;
     font-weight: 700;
     letter-spacing: 0.01em;
     white-space: nowrap;
+    line-height: 1;
+    vertical-align: super;
 }
 
 .metric-delta--positive {
-    background: rgba(15, 118, 110, 0.12);
     color: #0f766e;
 }
 
 .metric-delta--negative {
-    background: rgba(180, 83, 9, 0.14);
     color: #9a3412;
 }
 
 .metric-delta--neutral {
-    background: rgba(70, 85, 105, 0.12);
     color: #475569;
 }
 

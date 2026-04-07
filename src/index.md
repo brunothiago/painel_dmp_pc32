@@ -77,7 +77,7 @@ const updatedAt = new Intl.DateTimeFormat("pt-BR", {
 
 function formatMetricDelta(value) {
   if (value == null || value === 0) {
-    return {label: "0", tone: "neutral"};
+    return {label: null, tone: "neutral"};
   }
   return {
     label: `${value > 0 ? "+" : ""}${formatNumber(value)}`,
@@ -87,7 +87,7 @@ function formatMetricDelta(value) {
 
 function formatCurrencyDelta(value) {
   if (value == null || value === 0) {
-    return {label: "R$ 0", tone: "neutral"};
+    return {label: null, tone: "neutral"};
   }
   return {
     label: `${value > 0 ? "+" : "-"}${formatCurrencyCompact(Math.abs(value))}`,
@@ -100,7 +100,7 @@ function buildMetricDelta(currentValue, previousValue, formatter = formatMetricD
     return {
       ...formatter(null),
       title: "Sem snapshot anterior para comparação",
-      detail: "aguardando base anterior",
+      detail: null,
     };
   }
 
