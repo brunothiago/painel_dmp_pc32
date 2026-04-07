@@ -5,3 +5,5 @@ src/.observablehq/cache/
 /base_pc_32.csv
 .env
 config.env
+scripts/update.log
+**/__pycache__/
