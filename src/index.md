@@ -14,8 +14,12 @@ import {formatNumber, formatCurrencyCompact, formatPercent, formatDate} from "./
 import {SITUACAO_CORES, SUSPENSIVA_CORES, SITUACAO_ORDER, SUSPENSIVA_ORDER, LICITACAO_CORES, INICIO_OBRA_CORES} from "./lib/theme.js";
 
 const rawText = await FileAttachment("data/base_pc_32.csv").text();
+const previousRawText = await FileAttachment("data/base_pc_32_previous.csv").text();
+const baseDiffLatest = await FileAttachment("data/base_diff_latest.json").json();
 const dsv = dsvFormat(";");
-const rawData = dsv.parse(rawText, (d) => ({
+
+function parseBaseRow(d) {
+  return {
   cod_tci: d.cod_tci,
   num_convenio: d.num_convenio,
   uf: d.txt_uf,
@@ -58,7 +62,11 @@ const rawData = dsv.parse(rawText, (d) => ({
   data_limite_licitacao_casa_civil: d.data_limite_licitacao_casa_civil,
   status_regra_casa_civil: d.status_regra_casa_civil,
   urgencia_suspensiva: d.urgencia_suspensiva,
-}));
+  };
+}
+
+const rawData = dsv.parse(rawText, parseBaseRow);
+const previousRawData = dsv.parse(previousRawText, parseBaseRow);
 
 const secretarias = [...new Set(rawData.map(d => d.secretaria).filter(Boolean))].sort();
 const updatedAt = new Intl.DateTimeFormat("pt-BR", {
@@ -66,6 +74,101 @@ const updatedAt = new Intl.DateTimeFormat("pt-BR", {
   month: "2-digit",
   year: "numeric",
 }).format(new Date());
+
+function formatMetricDelta(value) {
+  if (value == null || value === 0) {
+    return {label: "0", tone: "neutral"};
+  }
+  return {
+    label: `${value > 0 ? "+" : ""}${formatNumber(value)}`,
+    tone: value > 0 ? "positive" : "negative",
+  };
+}
+
+function formatCurrencyDelta(value) {
+  if (value == null || value === 0) {
+    return {label: "R$ 0", tone: "neutral"};
+  }
+  return {
+    label: `${value > 0 ? "+" : "-"}${formatCurrencyCompact(Math.abs(value))}`,
+    tone: value > 0 ? "positive" : "negative",
+  };
+}
+
+function buildMetricDelta(currentValue, previousValue, formatter = formatMetricDelta) {
+  if (!baseDiffLatest?.snapshot_anterior) {
+    return {
+      ...formatter(null),
+      title: "Sem snapshot anterior para comparação",
+      detail: "aguardando base anterior",
+    };
+  }
+
+  return {
+    ...formatter(currentValue - previousValue),
+    title: `Variação em relação ao snapshot de ${baseDiffLatest.snapshot_anterior}`,
+    detail: `vs. ${baseDiffLatest.snapshot_anterior}`,
+  };
+}
+```
+
+```js
+if (!window.__pc32RuleTooltipInit) {
+  const closeAllRuleTooltips = () => {
+    document.querySelectorAll(".rule-tooltip.is-open").forEach((tooltip) => {
+      tooltip.classList.remove("is-open");
+      const trigger = tooltip.querySelector(".rule-tooltip__trigger");
+      if (trigger) trigger.setAttribute("aria-expanded", "false");
+    });
+  };
+
+  const syncRuleTooltips = () => {
+    document.querySelectorAll(".rule-tooltip").forEach((tooltip, index) => {
+      const trigger = tooltip.querySelector(".rule-tooltip__trigger");
+      const content = tooltip.querySelector(".rule-tooltip__content");
+      if (!trigger || !content) return;
+
+      const tooltipId = content.id || `rule-tooltip-content-${index + 1}`;
+      content.id = tooltipId;
+      trigger.type = "button";
+      trigger.setAttribute("aria-expanded", tooltip.classList.contains("is-open") ? "true" : "false");
+      trigger.setAttribute("aria-controls", tooltipId);
+      trigger.setAttribute("aria-haspopup", "dialog");
+      content.setAttribute("role", "dialog");
+    });
+  };
+
+  document.addEventListener("click", (event) => {
+    const trigger = event.target.closest(".rule-tooltip__trigger");
+    if (trigger) {
+      const tooltip = trigger.closest(".rule-tooltip");
+      const willOpen = !tooltip.classList.contains("is-open");
+      closeAllRuleTooltips();
+      if (willOpen) {
+        tooltip.classList.add("is-open");
+        trigger.setAttribute("aria-expanded", "true");
+      }
+      event.preventDefault();
+      return;
+    }
+
+    if (!event.target.closest(".rule-tooltip")) {
+      closeAllRuleTooltips();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeAllRuleTooltips();
+  });
+
+  window.addEventListener("resize", closeAllRuleTooltips);
+  window.addEventListener("scroll", closeAllRuleTooltips, true);
+
+  syncRuleTooltips();
+  window.__pc32RuleTooltipInit = { closeAllRuleTooltips, syncRuleTooltips };
+} else {
+  window.__pc32RuleTooltipInit.syncRuleTooltips();
+}
 ```
 
 ```js
@@ -430,10 +533,25 @@ const data = baseData.filter(d =>
   (selectedSuspensiva == null || d.situacao_suspensiva === selectedSuspensiva)
 );
 
+const previousBaseData = previousRawData.filter(d =>
+  fConvenio.some(row => row.num_convenio === d.num_convenio && row.cod_tci === d.cod_tci) &&
+  (fSecretaria === "Todas" || d.secretaria === fSecretaria) &&
+  (fModalidade === "Todas" || d.modalidade === fModalidade)
+);
+
+const previousData = previousBaseData.filter(d =>
+  (selectedSituacao == null || d.situacao === selectedSituacao) &&
+  (selectedSuspensiva == null || d.situacao_suspensiva === selectedSuspensiva)
+);
+
 const total = data.length;
 const comSuspensiva = data.filter(d => d.situacao === "Contratado - Suspensiva").length;
 const semSuspensiva = data.filter(d => d.situacao === "Contratado - Normal").length;
 const vlrTotal = data.reduce((s, d) => s + d.vlr_repasse, 0);
+const previousTotal = previousData.length;
+const previousComSuspensiva = previousData.filter(d => d.situacao === "Contratado - Suspensiva").length;
+const previousSemSuspensiva = previousData.filter(d => d.situacao === "Contratado - Normal").length;
+const previousVlrTotal = previousData.reduce((s, d) => s + d.vlr_repasse, 0);
 const pctSuspensiva = total > 0 ? comSuspensiva / total : 0;
 const secretariaDrillField = fSecretaria === "Todas" ? "secretaria" : "modalidade";
 const secretariaDrillLabel = secretariaDrillField === "secretaria" ? "Secretaria" : "Modalidade";
@@ -457,10 +575,16 @@ const secretariaDrillData = [...new Set(
 
 ```js
 display(metricGrid([
-  { label: "Total selecionadas", value: formatNumber(total), tone: "default" },
-  { label: "Com suspensiva", value: formatNumber(comSuspensiva), detail: formatPercent(pctSuspensiva) + " do total", tone: "gold" },
-  { label: "Sem suspensiva (Normal)", value: formatNumber(semSuspensiva), detail: formatPercent(total > 0 ? semSuspensiva / total : 0) + " do total", tone: "green" },
-  { label: "Valor total de repasse", value: formatCurrencyCompact(vlrTotal), tone: "blue" },
+  {
+    label: "Total selecionadas",
+    value: formatNumber(total),
+    detail: buildMetricDelta(total, previousTotal).detail,
+    delta: buildMetricDelta(total, previousTotal),
+    tone: "default"
+  },
+  { label: "Com suspensiva", value: formatNumber(comSuspensiva), detail: formatPercent(pctSuspensiva) + " do total", delta: buildMetricDelta(comSuspensiva, previousComSuspensiva), tone: "gold" },
+  { label: "Sem suspensiva (Normal)", value: formatNumber(semSuspensiva), detail: formatPercent(total > 0 ? semSuspensiva / total : 0) + " do total", delta: buildMetricDelta(semSuspensiva, previousSemSuspensiva), tone: "green" },
+  { label: "Valor total de repasse", value: formatCurrencyCompact(vlrTotal), delta: buildMetricDelta(vlrTotal, previousVlrTotal, formatCurrencyDelta), tone: "blue" },
 ]));
 ```
 
@@ -656,6 +780,14 @@ const publicadas = licitacaoBase.filter(d => d.dt_pub_licitacao);
 const homologacaoPendente = publicadas.filter(d => !d.dt_homolog_licitacao);
 const homologacaoVencida = homologacaoPendente.filter(d => d.status_homolog_licitacao === "Vencida").length;
 const homologacaoProx30 = homologacaoPendente.filter(d => d.status_homolog_licitacao === "Próximos 30 dias").length;
+const previousLicitacaoBase = previousData.filter(d => d.dt_retirada_suspensiva && d.situacao !== "Cancelado ou Distratado");
+const previousAguardandoPublicacao = previousLicitacaoBase.filter(d => !d.dt_pub_licitacao);
+const previousPublicacaoVencida = previousAguardandoPublicacao.filter(d => d.status_pub_licitacao === "Vencida").length;
+const previousPublicacaoProx30 = previousAguardandoPublicacao.filter(d => d.status_pub_licitacao === "Próximos 30 dias").length;
+const previousPublicadas = previousLicitacaoBase.filter(d => d.dt_pub_licitacao);
+const previousHomologacaoPendente = previousPublicadas.filter(d => !d.dt_homolog_licitacao);
+const previousHomologacaoVencida = previousHomologacaoPendente.filter(d => d.status_homolog_licitacao === "Vencida").length;
+const previousHomologacaoProx30 = previousHomologacaoPendente.filter(d => d.status_homolog_licitacao === "Próximos 30 dias").length;
 const cumprimentoCasaCivil = [
   { status: "Cumpriu", qtd: licitacaoBase.filter(d => d.status_regra_casa_civil === "Cumpriu").length, color: LICITACAO_CORES["Cumpriu"] },
   { status: "Não cumpriu", qtd: licitacaoBase.filter(d => d.status_regra_casa_civil === "Não cumpriu").length, color: LICITACAO_CORES["Não cumpriu"] },
@@ -663,12 +795,12 @@ const cumprimentoCasaCivil = [
 ].filter(d => d.qtd > 0);
 
 display(metricGrid([
-  { label: "Com retirada de suspensiva", value: formatNumber(licitacaoBase.length), tone: "default" },
-  { label: "Aguardando publicação", value: formatNumber(aguardandoPublicacao.length), detail: formatPercent(licitacaoBase.length > 0 ? aguardandoPublicacao.length / licitacaoBase.length : 0) + " com retirada de suspensiva", tone: "gold" },
-  { label: "Publicação vencida", value: formatNumber(publicacaoVencida), detail: "prazo de 120 dias após retirada da suspensiva", tone: "red" },
-  { label: "Publicação nos próximos 30 dias", value: formatNumber(publicacaoProx30), tone: "gold" },
-  { label: "Homologação vencida", value: formatNumber(homologacaoVencida), detail: "prazo de 120 dias após publicação", tone: "red" },
-  { label: "Homologação nos próximos 30 dias", value: formatNumber(homologacaoProx30), tone: "gold" },
+  { label: "Com retirada de suspensiva", value: formatNumber(licitacaoBase.length), delta: buildMetricDelta(licitacaoBase.length, previousLicitacaoBase.length), tone: "default" },
+  { label: "Aguardando publicação", value: formatNumber(aguardandoPublicacao.length), detail: formatPercent(licitacaoBase.length > 0 ? aguardandoPublicacao.length / licitacaoBase.length : 0) + " com retirada de suspensiva", delta: buildMetricDelta(aguardandoPublicacao.length, previousAguardandoPublicacao.length), tone: "gold" },
+  { label: "Publicação vencida", value: formatNumber(publicacaoVencida), detail: "prazo de 120 dias após retirada da suspensiva", delta: buildMetricDelta(publicacaoVencida, previousPublicacaoVencida), tone: "red" },
+  { label: "Publicação nos próximos 30 dias", value: formatNumber(publicacaoProx30), delta: buildMetricDelta(publicacaoProx30, previousPublicacaoProx30), tone: "gold" },
+  { label: "Homologação vencida", value: formatNumber(homologacaoVencida), detail: "prazo de 120 dias após publicação", delta: buildMetricDelta(homologacaoVencida, previousHomologacaoVencida), tone: "red" },
+  { label: "Homologação nos próximos 30 dias", value: formatNumber(homologacaoProx30), delta: buildMetricDelta(homologacaoProx30, previousHomologacaoProx30), tone: "gold" },
 ]));
 ```
 
@@ -744,6 +876,12 @@ const inicioProx10 = inicioObraBase.filter(d => d.status_inicio_obra === "Próxi
 const inicioNoPrazo = inicioObraBase.filter(d => d.status_inicio_obra === "No prazo").length;
 const iniciadaNoPrazo = inicioObraBase.filter(d => d.status_inicio_obra === "Iniciada no prazo").length;
 const iniciadaEmAtraso = inicioObraBase.filter(d => d.status_inicio_obra === "Iniciada em atraso").length;
+const previousInicioObraBase = previousData.filter(d => d.dt_aio && d.situacao !== "Cancelado ou Distratado");
+const previousInicioPrazoVencido = previousInicioObraBase.filter(d => d.status_inicio_obra === "Prazo vencido").length;
+const previousInicioProx10 = previousInicioObraBase.filter(d => d.status_inicio_obra === "Próximos 10 dias úteis").length;
+const previousInicioNoPrazo = previousInicioObraBase.filter(d => d.status_inicio_obra === "No prazo").length;
+const previousIniciadaNoPrazo = previousInicioObraBase.filter(d => d.status_inicio_obra === "Iniciada no prazo").length;
+const previousIniciadaEmAtraso = previousInicioObraBase.filter(d => d.status_inicio_obra === "Iniciada em atraso").length;
 const inicioObraChart = [
   { status: "Iniciada no prazo", qtd: iniciadaNoPrazo, color: INICIO_OBRA_CORES["Iniciada no prazo"] },
   { status: "Iniciada em atraso", qtd: iniciadaEmAtraso, color: INICIO_OBRA_CORES["Iniciada em atraso"] },
@@ -753,12 +891,12 @@ const inicioObraChart = [
 ].filter(d => d.qtd > 0);
 
 display(metricGrid([
-  { label: "Com AIO", value: formatNumber(inicioObraBase.length), tone: "default" },
-  { label: "Iniciada no prazo", value: formatNumber(iniciadaNoPrazo), tone: "green" },
-  { label: "Iniciada em atraso", value: formatNumber(iniciadaEmAtraso), tone: "red" },
-  { label: "Prazo vencido", value: formatNumber(inicioPrazoVencido), tone: "red" },
-  { label: "Próximos 10 dias úteis", value: formatNumber(inicioProx10), tone: "gold" },
-  { label: "No prazo", value: formatNumber(inicioNoPrazo), tone: "blue" },
+  { label: "Com AIO", value: formatNumber(inicioObraBase.length), delta: buildMetricDelta(inicioObraBase.length, previousInicioObraBase.length), tone: "default" },
+  { label: "Iniciada no prazo", value: formatNumber(iniciadaNoPrazo), delta: buildMetricDelta(iniciadaNoPrazo, previousIniciadaNoPrazo), tone: "green" },
+  { label: "Iniciada em atraso", value: formatNumber(iniciadaEmAtraso), delta: buildMetricDelta(iniciadaEmAtraso, previousIniciadaEmAtraso), tone: "red" },
+  { label: "Prazo vencido", value: formatNumber(inicioPrazoVencido), delta: buildMetricDelta(inicioPrazoVencido, previousInicioPrazoVencido), tone: "red" },
+  { label: "Próximos 10 dias úteis", value: formatNumber(inicioProx10), delta: buildMetricDelta(inicioProx10, previousInicioProx10), tone: "gold" },
+  { label: "No prazo", value: formatNumber(inicioNoPrazo), delta: buildMetricDelta(inicioNoPrazo, previousInicioNoPrazo), tone: "blue" },
 ]));
 ```
 

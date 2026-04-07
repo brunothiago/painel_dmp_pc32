@@ -266,6 +266,34 @@
     line-height: 1;
 }
 
+.metric-delta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 1.6rem;
+    padding: 0.16rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+}
+
+.metric-delta--positive {
+    background: rgba(15, 118, 110, 0.12);
+    color: #0f766e;
+}
+
+.metric-delta--negative {
+    background: rgba(180, 83, 9, 0.14);
+    color: #9a3412;
+}
+
+.metric-delta--neutral {
+    background: rgba(70, 85, 105, 0.12);
+    color: #475569;
+}
+
 .metric-detail {
     margin: 0.55rem 0 0;
     color: var(--theme-foreground-muted);
@@ -345,6 +373,11 @@
     color: #fff;
 }
 
+.rule-tooltip.is-open .rule-tooltip__trigger {
+    background: var(--theme-foreground-muted, #6b7280);
+    color: #fff;
+}
+
 .rule-tooltip__content {
     display: none;
     position: absolute;
@@ -377,7 +410,8 @@
 }
 
 .rule-tooltip:hover .rule-tooltip__content,
-.rule-tooltip:focus-within .rule-tooltip__content {
+.rule-tooltip:focus-within .rule-tooltip__content,
+.rule-tooltip.is-open .rule-tooltip__content {
     display: block;
 }
 
@@ -392,6 +426,35 @@
 
 .rule-tooltip__content li {
     margin-bottom: 0.25rem;
+}
+
+@media (hover: none), (pointer: coarse) {
+    .rule-tooltip:hover .rule-tooltip__content,
+    .rule-tooltip:focus-within .rule-tooltip__content {
+        display: none;
+    }
+
+    .rule-tooltip.is-open .rule-tooltip__content {
+        display: block;
+    }
+
+    .rule-tooltip__content {
+        position: fixed;
+        left: 1rem;
+        right: 1rem;
+        top: auto;
+        bottom: 1rem;
+        min-width: 0;
+        max-width: none;
+        max-height: min(70vh, 30rem);
+        overflow: auto;
+        overscroll-behavior: contain;
+        z-index: 2000;
+    }
+
+    .rule-tooltip__content::before {
+        display: none;
+    }
 }
 
 /* Column picker */

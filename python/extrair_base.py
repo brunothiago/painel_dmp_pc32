@@ -12,6 +12,8 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL
 
+from base_snapshot_diff import generate_daily_snapshot_diff
+
 load_dotenv(os.path.join(os.path.dirname(__file__), "config.env"))
 
 DATABASE_URL = URL.create(
@@ -24,6 +26,10 @@ DATABASE_URL = URL.create(
 )
 
 CSV_OUTPUT = os.path.join(os.path.dirname(__file__), "..", "src", "data", "base_pc_32.csv")
+HISTORY_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "historico")
+DIFF_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "diff")
+LATEST_DIFF_JSON = os.path.join(os.path.dirname(__file__), "..", "src", "data", "base_diff_latest.json")
+PREVIOUS_CSV_OUTPUT = os.path.join(os.path.dirname(__file__), "..", "src", "data", "base_pc_32_previous.csv")
 
 QUERY = text("""
 WITH publicacao_licitacao AS (
@@ -239,6 +245,25 @@ def main():
             writer.writerows(linhas)
 
         print(f"CSV salvo em {CSV_OUTPUT} ({len(linhas)} linhas)")
+
+    artifacts = generate_daily_snapshot_diff(
+        current_csv=CSV_OUTPUT,
+        history_dir=HISTORY_DIR,
+        diff_dir=DIFF_DIR,
+        latest_json_path=LATEST_DIFF_JSON,
+        previous_csv_path=PREVIOUS_CSV_OUTPUT,
+    )
+
+    print(f"Snapshot salvo em {artifacts.snapshot_path}")
+    if artifacts.latest_json_path:
+        print(f"Resumo consumível pelo painel salvo em {artifacts.latest_json_path}")
+    if artifacts.previous_csv_path:
+        print(f"Snapshot anterior consumível pelo painel salvo em {artifacts.previous_csv_path}")
+    if artifacts.summary_md_path and artifacts.detail_csv_path:
+        print(f"Relatório salvo em {artifacts.summary_md_path}")
+        print(f"Detalhe salvo em {artifacts.detail_csv_path}")
+    else:
+        print("Nenhum snapshot anterior encontrado. Apenas o snapshot de hoje foi salvo.")
 
 
 if __name__ == "__main__":

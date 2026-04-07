@@ -11,12 +11,18 @@ export function metricGrid(metrics) {
   return grid;
 }
 
-function metricCard({label, value, detail, tone = "default"}) {
+function metricCard({label, value, detail, tone = "default", delta}) {
   const card = createNode("article", `metric-card tone-${tone}`);
   const labelNode = createNode("p", "metric-label", label);
   const valueRow = createNode("div", "metric-value-row");
   const valueNode = createNode("strong", "metric-value", value);
   valueRow.append(valueNode);
+  if (delta && delta.label) {
+    const deltaTone = delta.tone || "neutral";
+    const deltaNode = createNode("span", `metric-delta metric-delta--${deltaTone}`, delta.label);
+    if (delta.title) deltaNode.title = delta.title;
+    valueRow.append(deltaNode);
+  }
   card.append(labelNode, valueRow);
   if (detail) card.append(createNode("p", "metric-detail", detail));
   return card;
