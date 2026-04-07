@@ -544,7 +544,7 @@ display(Plot.plot({
 
 <div class="card">
 
-## Situação do Contrato
+<h2>Situação do Contrato <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Classificação da situação contratual conforme Transferegov.<ul><li><strong>Em Contratação</strong> — instrumento ainda não formalizado</li><li><strong>Contratado - Suspensiva</strong> — contrato assinado com condição suspensiva pendente</li><li><strong>Contratado - Normal</strong> — contrato ativo sem restrições</li><li><strong>Cancelado ou Distratado</strong> — contrato encerrado</li></ul></span></span></h2>
 
 <p>Clique em uma barra para filtrar</p>
 
@@ -576,7 +576,7 @@ const selectedSituacao = view(makeClickableChart(
 
 <div class="card">
 
-## Situação da Análise Suspensiva
+<h2>Situação da Análise Suspensiva <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Situação da análise da condição suspensiva registrada no Transferegov.<ul><li><strong>Doc. não enviada p/ análise</strong> — documentação ainda não submetida</li><li><strong>Análise não iniciada / iniciada</strong> — etapas de tramitação interna</li><li><strong>Analisada e aceita</strong> — condição aceita, aguardando retirada</li><li><strong>Suspensiva retirada</strong> — condição satisfeita, contrato liberado</li></ul></span></span></h2>
 
 <p>Clique em uma barra para filtrar</p>
 
@@ -610,7 +610,7 @@ const selectedSuspensiva = view(makeClickableChart(
 
 <div class="card card--suspensiva-analysis">
 
-## Análise de Suspensivas — Quebra por etapas
+<h2>Análise de Suspensivas — Quebra por etapas <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Cascata dos contratos com suspensiva ativa, classificados por urgência do vencimento.<ul><li><strong>Vencida</strong> — data de vencimento da suspensiva já passou</li><li><strong>Próximos 30 dias</strong> — vence em até 30 dias corridos</li><li><strong>31–90 dias</strong> — vence entre 31 e 90 dias</li><li><strong>Mais de 90 dias</strong> — vence após 90 dias</li><li><strong>Sem data</strong> — sem data de vencimento registrada</li></ul></span></span></h2>
 
 <p>Cascata proporcional: do total à urgência de vencimento</p>
 
@@ -643,7 +643,7 @@ const selectedCascade = view(cascadeChart(data));
 
 <div class="card card--licitacao-analysis">
 
-## Análise de Licitação — Prazos de publicação e homologação
+<h2>Análise de Licitação — Prazos de publicação e homologação <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Monitoramento dos prazos de licitação a partir da retirada da suspensiva.<ul><li><strong>Prazo de publicação</strong> — até 120 dias corridos após a data de retirada da suspensiva</li><li><strong>Prazo de homologação</strong> — até 120 dias corridos após a publicação da licitação</li><li><strong>Regra Casa Civil</strong> — publicação, homologação e ordem de serviço devem ocorrer até 31/03/2026</li></ul>Classificação de prazo:<ul><li><strong>Vencida</strong> — prazo já expirou</li><li><strong>Próximos 30 dias</strong> — vence em até 30 dias</li><li><strong>No prazo</strong> — mais de 30 dias restantes</li></ul></span></span></h2>
 
 <p>Publicação até 120 dias após a retirada da suspensiva; homologação até 120 dias após a publicação da licitação.</p>
 
@@ -733,7 +733,7 @@ const selectedLicitacao = view(renderLicitacaoFlow(data));
 
 <div class="card card--inicio-obra-analysis">
 
-## Análise de Início da Obra — Prazo após AIO
+<h2>Análise de Início da Obra — Prazo após AIO <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Monitoramento do prazo para início da obra após a emissão da AIO (Autorização de Início de Obra).<ul><li><strong>Prazo</strong> — 10 dias úteis após a data de AIO</li><li><strong>Iniciada no prazo</strong> — obra iniciada dentro do prazo</li><li><strong>Iniciada em atraso</strong> — obra iniciada após o prazo</li><li><strong>Próximos 10 dias úteis</strong> — prazo vence em até 10 dias úteis</li><li><strong>Prazo vencido</strong> — prazo expirou sem início da obra</li><li><strong>No prazo</strong> — mais de 10 dias úteis restantes</li></ul></span></span></h2>
 
 <p>Monitoramento do prazo de início da obra: até 10 dias úteis após a data de AIO.</p>
 
