@@ -11,7 +11,7 @@ import {dsvFormat} from "d3-dsv";
 import {metricGrid} from "./components/cards.js";
 import {cascadeChart, matchesCascadeSelection} from "./components/cascade-chart.js";
 import {formatNumber, formatCurrencyCompact, formatPercent, formatDate} from "./lib/formatters.js";
-import {SITUACAO_CORES, SUSPENSIVA_CORES, SITUACAO_ORDER, SUSPENSIVA_ORDER} from "./lib/theme.js";
+import {SITUACAO_CORES, SUSPENSIVA_CORES, SITUACAO_ORDER, SUSPENSIVA_ORDER, LICITACAO_CORES, INICIO_OBRA_CORES} from "./lib/theme.js";
 
 const rawText = await FileAttachment("data/base_pc_32.csv").text();
 const dsv = dsvFormat(";");
@@ -190,15 +190,6 @@ function makeClickableChart(plotEl, items, keyField) {
 }
 
 const LICITACAO_PRAZO_ORDER = ["Vencida", "Próximos 30 dias", "No prazo"];
-const LICITACAO_CORES = {
-  "Aguardando publicação": "#b45309",
-  "Publicada": "#0f766e",
-  "Homologação pendente": "#b45309",
-  "Homologada": "#0f766e",
-  "Vencida": "#b42318",
-  "Próximos 30 dias": "#f59e0b",
-  "No prazo": "#356c8c",
-};
 
 function makeFlowElement(tag, className, text) {
   const node = document.createElement(tag);
@@ -666,9 +657,9 @@ const homologacaoPendente = publicadas.filter(d => !d.dt_homolog_licitacao);
 const homologacaoVencida = homologacaoPendente.filter(d => d.status_homolog_licitacao === "Vencida").length;
 const homologacaoProx30 = homologacaoPendente.filter(d => d.status_homolog_licitacao === "Próximos 30 dias").length;
 const cumprimentoCasaCivil = [
-  { status: "Cumpriu", qtd: licitacaoBase.filter(d => d.status_regra_casa_civil === "Cumpriu").length, color: "#0f766e" },
-  { status: "Não cumpriu", qtd: licitacaoBase.filter(d => d.status_regra_casa_civil === "Não cumpriu").length, color: "#b42318" },
-  { status: "Fora do escopo", qtd: data.filter(d => d.status_regra_casa_civil === "Fora do escopo").length, color: "#6b7280" },
+  { status: "Cumpriu", qtd: licitacaoBase.filter(d => d.status_regra_casa_civil === "Cumpriu").length, color: LICITACAO_CORES["Cumpriu"] },
+  { status: "Não cumpriu", qtd: licitacaoBase.filter(d => d.status_regra_casa_civil === "Não cumpriu").length, color: LICITACAO_CORES["Não cumpriu"] },
+  { status: "Fora do escopo", qtd: data.filter(d => d.status_regra_casa_civil === "Fora do escopo").length, color: LICITACAO_CORES["Fora do escopo"] },
 ].filter(d => d.qtd > 0);
 
 display(metricGrid([
@@ -754,11 +745,11 @@ const inicioNoPrazo = inicioObraBase.filter(d => d.status_inicio_obra === "No pr
 const iniciadaNoPrazo = inicioObraBase.filter(d => d.status_inicio_obra === "Iniciada no prazo").length;
 const iniciadaEmAtraso = inicioObraBase.filter(d => d.status_inicio_obra === "Iniciada em atraso").length;
 const inicioObraChart = [
-  { status: "Iniciada no prazo", qtd: iniciadaNoPrazo, color: "#0f766e" },
-  { status: "Iniciada em atraso", qtd: iniciadaEmAtraso, color: "#b42318" },
-  { status: "No prazo", qtd: inicioNoPrazo, color: "#356c8c" },
-  { status: "Próximos 10 dias úteis", qtd: inicioProx10, color: "#f59e0b" },
-  { status: "Prazo vencido", qtd: inicioPrazoVencido, color: "#b42318" },
+  { status: "Iniciada no prazo", qtd: iniciadaNoPrazo, color: INICIO_OBRA_CORES["Iniciada no prazo"] },
+  { status: "Iniciada em atraso", qtd: iniciadaEmAtraso, color: INICIO_OBRA_CORES["Iniciada em atraso"] },
+  { status: "No prazo", qtd: inicioNoPrazo, color: INICIO_OBRA_CORES["No prazo"] },
+  { status: "Próximos 10 dias úteis", qtd: inicioProx10, color: INICIO_OBRA_CORES["Próximos 10 dias úteis"] },
+  { status: "Prazo vencido", qtd: inicioPrazoVencido, color: INICIO_OBRA_CORES["Prazo vencido"] },
 ].filter(d => d.qtd > 0);
 
 display(metricGrid([

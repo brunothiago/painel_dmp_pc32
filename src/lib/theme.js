@@ -50,13 +50,45 @@ export const SUSPENSIVA_ORDER = [
   "Suspensiva retirada",
 ];
 
-// Cores por situação da análise suspensiva
+// Cores por situação da análise suspensiva (paleta laranja — do claro ao escuro)
 export const SUSPENSIVA_CORES = {
-  "Suspensiva retirada": "#0f766e",
-  "Doc. não enviada p/ análise": "#b45309",
+  "Suspensiva retirada": "#78350f",
+  "Analisada e aceita": "#92400e",
+  "Análise iniciada": "#b45309",
   "Analisada com pendências": "#c2410c",
-  "Análise iniciada": "#356c8c",
-  "Análise não iniciada": "#6b7280",
-  "Analisada e aceita": "#124842",
-  "Analisada e rejeitada": "#b42318",
+  "Análise não iniciada": "#d97706",
+  "Analisada e rejeitada": "#ea580c",
+  "Doc. não enviada p/ análise": "#f59e0b",
+};
+
+// Cores de urgência da suspensiva (paleta laranja)
+export const URGENCIA_CORES = {
+  "Vencida": "#ea580c",
+  "Próximos 30 dias": "#d97706",
+  "31–90 dias": "#b45309",
+  "Mais de 90 dias": "#92400e",
+  "Sem data": "#78350f",
+};
+
+// Cores do bloco de licitação (paleta verde — do claro ao escuro)
+export const LICITACAO_CORES = {
+  "Aguardando publicação": "#6ee7b7",
+  "Publicada": "#10b981",
+  "Homologação pendente": "#6ee7b7",
+  "Homologada": "#10b981",
+  "Vencida": "#064e3b",
+  "Próximos 30 dias": "#34d399",
+  "No prazo": "#a7f3d0",
+  "Cumpriu": "#10b981",
+  "Não cumpriu": "#064e3b",
+  "Fora do escopo": "#d1fae5",
+};
+
+// Cores do bloco de início de obra (paleta azul — do claro ao escuro)
+export const INICIO_OBRA_CORES = {
+  "Iniciada no prazo": "#60a5fa",
+  "Iniciada em atraso": "#1e3a5f",
+  "No prazo": "#93c5fd",
+  "Próximos 10 dias úteis": "#3b82f6",
+  "Prazo vencido": "#1e3a5f",
 };

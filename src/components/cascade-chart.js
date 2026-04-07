@@ -1,12 +1,4 @@
-import {SITUACAO_CORES, SUSPENSIVA_CORES, SITUACAO_ORDER, SUSPENSIVA_ORDER, PALETTE} from "../lib/theme.js";
-
-const URGENCIA_CORES = {
-  "Vencida": "#b42318",
-  "Próximos 30 dias": "#f59e0b",
-  "31–90 dias": "#b45309",
-  "Mais de 90 dias": "#356c8c",
-  "Sem data": "#9ca3af",
-};
+import {SITUACAO_CORES, SUSPENSIVA_CORES, SITUACAO_ORDER, SUSPENSIVA_ORDER, URGENCIA_CORES, PALETTE} from "../lib/theme.js";
 
 const URGENCIA_ORDER = ["Vencida", "Próximos 30 dias", "31–90 dias", "Mais de 90 dias", "Sem data"];
 
