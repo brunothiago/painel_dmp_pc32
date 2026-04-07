@@ -1,7 +1,6 @@
-import {SITUACAO_CORES, SUSPENSIVA_CORES, PALETTE} from "../lib/theme.js";
+import {SITUACAO_CORES, SUSPENSIVA_CORES, SITUACAO_ORDER, SUSPENSIVA_ORDER, PALETTE} from "../lib/theme.js";
 
-// Cores das faixas de urgência
-export const URGENCIA_CORES = {
+const URGENCIA_CORES = {
   "Vencida": "#b42318",
   "Próximos 30 dias": "#f59e0b",
   "31–90 dias": "#b45309",
@@ -10,23 +9,6 @@ export const URGENCIA_CORES = {
 };
 
 const URGENCIA_ORDER = ["Vencida", "Próximos 30 dias", "31–90 dias", "Mais de 90 dias", "Sem data"];
-const SITUACAO_ORDER = [
-  "Em Contratação",
-  "Contratado - Suspensiva",
-  "Contratado - Normal",
-  "Contratado - Em Prestação de Contas",
-  "Cancelado ou Distratado",
-  "Não Identificado",
-];
-const SUSPENSIVA_ORDER = [
-  "Doc. não enviada p/ análise",
-  "Análise não iniciada",
-  "Análise iniciada",
-  "Analisada e rejeitada",
-  "Analisada com pendências",
-  "Analisada e aceita",
-  "Suspensiva retirada",
-];
 
 function el(tag, cls) {
   const node = document.createElement(tag);
@@ -135,23 +117,7 @@ function connector(label) {
   return wrap;
 }
 
-export function getUrgenciaBucket(d, today = new Date()) {
-  const ms30 = 30 * 24 * 60 * 60 * 1000;
-  const ms90 = 90 * 24 * 60 * 60 * 1000;
-
-  if (d.dt_retirada_suspensiva) return null;
-  if (d.situacao === "Cancelado ou Distratado") return null;
-  if (!d.dt_vencimento_suspensiva) return "Sem data";
-
-  const venc = new Date(`${d.dt_vencimento_suspensiva}T12:00:00Z`);
-  const diff = venc - today;
-  if (diff < 0) return "Vencida";
-  if (diff <= ms30) return "Próximos 30 dias";
-  if (diff <= ms90) return "31–90 dias";
-  return "Mais de 90 dias";
-}
-
-export function matchesCascadeSelection(d, selection = {}, today = new Date()) {
+export function matchesCascadeSelection(d, selection = {}) {
   return (
     (selection.situacao == null || d.situacao === selection.situacao) &&
     (
@@ -163,7 +129,7 @@ export function matchesCascadeSelection(d, selection = {}, today = new Date()) {
       (
         d.situacao === "Contratado - Suspensiva" &&
         !d.dt_retirada_suspensiva &&
-        getUrgenciaBucket(d, today) === selection.urgencia
+        d.urgencia_suspensiva === selection.urgencia
       )
     )
   );
@@ -171,9 +137,8 @@ export function matchesCascadeSelection(d, selection = {}, today = new Date()) {
 
 /**
  * @param {Array} data - dados filtrados
- * @param {Date} today - data de referência
  */
-export function cascadeChart(data, today = new Date()) {
+export function cascadeChart(data) {
   const container = Object.assign(el("div", "casc-chart"), {
     value: {situacao: null, suspensiva: null, urgencia: null}
   });
@@ -202,7 +167,7 @@ export function cascadeChart(data, today = new Date()) {
     clear.hidden = !Object.values(container.value).some(Boolean);
     container.append(clear);
 
-    const filteredData = data.filter((d) => matchesCascadeSelection(d, container.value, today));
+    const filteredData = data.filter((d) => matchesCascadeSelection(d, container.value));
     const totalN1 = filteredData.length;
 
     if (totalN1 === 0) {
@@ -274,7 +239,7 @@ export function cascadeChart(data, today = new Date()) {
     const byUrgencia = URGENCIA_ORDER
       .map(u => ({
         label: u,
-        qtd: pendentes.filter(d => getUrgenciaBucket(d, today) === u).length,
+        qtd: pendentes.filter(d => d.urgencia_suspensiva === u).length,
         color: URGENCIA_CORES[u],
       }))
       .filter(i => i.qtd > 0);

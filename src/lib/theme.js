@@ -29,6 +29,27 @@ export const SITUACAO_CORES = {
   "Não Identificado": "#9ca3af",
 };
 
+// Ordem das situações do contrato
+export const SITUACAO_ORDER = [
+  "Em Contratação",
+  "Contratado - Suspensiva",
+  "Contratado - Normal",
+  "Contratado - Em Prestação de Contas",
+  "Cancelado ou Distratado",
+  "Não Identificado",
+];
+
+// Ordem das situações de análise suspensiva
+export const SUSPENSIVA_ORDER = [
+  "Doc. não enviada p/ análise",
+  "Análise não iniciada",
+  "Análise iniciada",
+  "Analisada e rejeitada",
+  "Analisada com pendências",
+  "Analisada e aceita",
+  "Suspensiva retirada",
+];
+
 // Cores por situação da análise suspensiva
 export const SUSPENSIVA_CORES = {
   "Suspensiva retirada": "#0f766e",

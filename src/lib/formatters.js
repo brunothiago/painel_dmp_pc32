@@ -1,10 +1,4 @@
 const numberFormatter = new Intl.NumberFormat("pt-BR");
-const currencyFormatter = new Intl.NumberFormat("pt-BR", {
-  style: "currency",
-  currency: "BRL",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
 const currencyCompactFormatter = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
@@ -20,10 +14,6 @@ const percentFormatter = new Intl.NumberFormat("pt-BR", {
 
 export function formatNumber(value) {
   return numberFormatter.format(value ?? 0);
-}
-
-export function formatCurrency(value) {
-  return currencyFormatter.format(value ?? 0);
 }
 
 export function formatCurrencyCompact(value) {

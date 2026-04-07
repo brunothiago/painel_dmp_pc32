@@ -9,15 +9,20 @@ import * as XLSX from "xlsx";
 import {html} from "htl";
 import {dsvFormat} from "d3-dsv";
 import {metricGrid} from "./components/cards.js";
-import {cascadeChart, getUrgenciaBucket, matchesCascadeSelection} from "./components/cascade-chart.js";
-import {formatNumber, formatCurrency, formatCurrencyCompact, formatPercent, formatDate} from "./lib/formatters.js";
-import {SITUACAO_CORES, SUSPENSIVA_CORES} from "./lib/theme.js";
+import {cascadeChart, matchesCascadeSelection} from "./components/cascade-chart.js";
+import {formatNumber, formatCurrencyCompact, formatPercent, formatDate} from "./lib/formatters.js";
+import {SITUACAO_CORES, SUSPENSIVA_CORES, SITUACAO_ORDER, SUSPENSIVA_ORDER} from "./lib/theme.js";
 
 const rawText = await FileAttachment("data/base_pc_32.csv").text();
 const dsv = dsvFormat(";");
 const rawData = dsv.parse(rawText, (d) => ({
   cod_tci: d.cod_tci,
   num_convenio: d.num_convenio,
+  uf: d.txt_uf,
+  regiao: d.txt_regiao,
+  cod_ibge: d.cod_ibge_7dig,
+  municipio: d.txt_municipio,
+  objeto: d.dsc_objeto_instrumento,
   secretaria: d.txt_sigla_secretaria,
   fase: d.dsc_fase_pac,
   modalidade: d.txt_modalidade,
@@ -33,6 +38,26 @@ const rawData = dsv.parse(rawText, (d) => ({
   dt_aio: d.dte_aio,
   dt_inicio_obra: d.dte_inicio_obra_mcid,
   vlr_repasse: +d.vlr_repasse || 0,
+  status_suspensiva: d.status_suspensiva,
+  flag_publicacao_licitacao: d.flag_publicacao_licitacao,
+  flag_homologacao_licitacao: d.flag_homologacao_licitacao,
+  ultima_data_relevante: d.ultima_data_relevante,
+  fase_atual: d.fase_atual,
+  dias_ate_publicacao: d.dias_ate_publicacao ? +d.dias_ate_publicacao : null,
+  dias_publicacao_ate_homologacao: d.dias_publicacao_ate_homologacao ? +d.dias_publicacao_ate_homologacao : null,
+  dias_homologacao_ate_vrpl: d.dias_homologacao_ate_vrpl ? +d.dias_homologacao_ate_vrpl : null,
+  dias_vrpl_ate_aio: d.dias_vrpl_ate_aio ? +d.dias_vrpl_ate_aio : null,
+  dias_aio_ate_inicio_obra: d.dias_aio_ate_inicio_obra ? +d.dias_aio_ate_inicio_obra : null,
+  faixa_repasse: d.faixa_repasse,
+  prazo_pub_licitacao: d.prazo_pub_licitacao,
+  status_pub_licitacao: d.status_pub_licitacao,
+  prazo_homolog_licitacao: d.prazo_homolog_licitacao,
+  status_homolog_licitacao: d.status_homolog_licitacao,
+  prazo_inicio_obra: d.prazo_inicio_obra,
+  status_inicio_obra: d.status_inicio_obra,
+  data_limite_licitacao_casa_civil: d.data_limite_licitacao_casa_civil,
+  status_regra_casa_civil: d.status_regra_casa_civil,
+  urgencia_suspensiva: d.urgencia_suspensiva,
 }));
 
 const secretarias = [...new Set(rawData.map(d => d.secretaria).filter(Boolean))].sort();
@@ -102,25 +127,6 @@ const baseData = fConvenio.filter(d =>
   (fModalidade === "Todas" || d.modalidade === fModalidade)
 );
 
-const SITUACAO_ORDER = [
-  "Em Contratação",
-  "Contratado - Suspensiva",
-  "Contratado - Normal",
-  "Contratado - Em Prestação de Contas",
-  "Cancelado ou Distratado",
-  "Não Identificado",
-];
-
-const SUSPENSIVA_ORDER = [
-  "Doc. não enviada p/ análise",
-  "Análise não iniciada",
-  "Análise iniciada",
-  "Analisada e rejeitada",
-  "Analisada com pendências",
-  "Analisada e aceita",
-  "Suspensiva retirada",
-];
-
 const bySituacao = SITUACAO_ORDER
   .map(s => ({ situacao: s, qtd: baseData.filter(d => d.situacao === s).length }))
   .filter(d => d.qtd > 0);
@@ -183,9 +189,6 @@ function makeClickableChart(plotEl, items, keyField) {
   return input;
 }
 
-const today = new Date();
-const DAY_MS = 24 * 60 * 60 * 1000;
-const DATA_LIMITE_LICITACAO_CASA_CIVIL = "2026-03-31";
 const LICITACAO_PRAZO_ORDER = ["Vencida", "Próximos 30 dias", "No prazo"];
 const LICITACAO_CORES = {
   "Aguardando publicação": "#b45309",
@@ -196,116 +199,6 @@ const LICITACAO_CORES = {
   "Próximos 30 dias": "#f59e0b",
   "No prazo": "#356c8c",
 };
-
-function parseUtcDate(value) {
-  return value ? new Date(`${value}T12:00:00Z`) : null;
-}
-
-function addDays(date, days) {
-  const next = new Date(date);
-  next.setUTCDate(next.getUTCDate() + days);
-  return next;
-}
-
-function addBusinessDays(date, businessDays) {
-  const next = new Date(date);
-  let added = 0;
-  while (added < businessDays) {
-    next.setUTCDate(next.getUTCDate() + 1);
-    const day = next.getUTCDay();
-    if (day !== 0 && day !== 6) added += 1;
-  }
-  return next;
-}
-
-function toIsoDate(date) {
-  return date && !Number.isNaN(date.getTime()) ? date.toISOString().slice(0, 10) : null;
-}
-
-function getDeadlineBucket(deadline, today = new Date()) {
-  if (!deadline) return null;
-  const diff = parseUtcDate(deadline) - today;
-  if (diff < 0) return "Vencida";
-  if (diff <= 30 * DAY_MS) return "Próximos 30 dias";
-  return "No prazo";
-}
-
-function getPrazoPublicacao(d) {
-  if (!d.dt_retirada_suspensiva) return null;
-  return toIsoDate(addDays(parseUtcDate(d.dt_retirada_suspensiva), 120));
-}
-
-function getPrazoHomologacao(d) {
-  if (!d.dt_pub_licitacao) return null;
-  return toIsoDate(addDays(parseUtcDate(d.dt_pub_licitacao), 120));
-}
-
-function getStatusPublicacao(d, today = new Date()) {
-  if (!d.dt_retirada_suspensiva || d.situacao === "Cancelado ou Distratado") return null;
-  const prazo = getPrazoPublicacao(d);
-  if (d.dt_pub_licitacao) {
-    return parseUtcDate(d.dt_pub_licitacao) <= parseUtcDate(prazo)
-      ? "Concluída no prazo"
-      : "Concluída em atraso";
-  }
-  return getDeadlineBucket(prazo, today);
-}
-
-function getStatusHomologacao(d, today = new Date()) {
-  if (d.dt_homolog_licitacao && !d.dt_pub_licitacao) return "Inconsistência de base";
-  if (!d.dt_pub_licitacao || d.situacao === "Cancelado ou Distratado") return null;
-  const prazo = getPrazoHomologacao(d);
-  if (d.dt_homolog_licitacao) {
-    return parseUtcDate(d.dt_homolog_licitacao) <= parseUtcDate(prazo)
-      ? "Concluída no prazo"
-      : "Concluída em atraso";
-  }
-  return getDeadlineBucket(prazo, today);
-}
-
-function getStatusRegraCasaCivil(d) {
-  if (d.situacao === "Cancelado ou Distratado") return "Fora do escopo";
-  const limite = parseUtcDate(DATA_LIMITE_LICITACAO_CASA_CIVIL);
-  const pubOk = d.dt_pub_licitacao && parseUtcDate(d.dt_pub_licitacao) <= limite;
-  const homologOk = d.dt_homolog_licitacao && parseUtcDate(d.dt_homolog_licitacao) <= limite;
-  const osOk = d.dt_inicio_obra && parseUtcDate(d.dt_inicio_obra) <= limite;
-  return pubOk && homologOk && osOk ? "Cumpriu" : "Não cumpriu";
-}
-
-function countBusinessDaysRemaining(start, end) {
-  if (!start || !end) return null;
-  const cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
-  const target = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()));
-  let count = 0;
-  const step = cursor <= target ? 1 : -1;
-
-  while (cursor.getTime() !== target.getTime()) {
-    cursor.setUTCDate(cursor.getUTCDate() + step);
-    const day = cursor.getUTCDay();
-    if (day !== 0 && day !== 6) count += step;
-  }
-
-  return count;
-}
-
-function getPrazoInicioObra(d) {
-  if (!d.dt_aio) return null;
-  return toIsoDate(addBusinessDays(parseUtcDate(d.dt_aio), 10));
-}
-
-function getStatusInicioObra(d, today = new Date()) {
-  if (!d.dt_aio || d.situacao === "Cancelado ou Distratado") return null;
-  const prazo = getPrazoInicioObra(d);
-  if (d.dt_inicio_obra) {
-    return parseUtcDate(d.dt_inicio_obra) <= parseUtcDate(prazo)
-      ? "Iniciada no prazo"
-      : "Iniciada em atraso";
-  }
-  const remaining = countBusinessDaysRemaining(today, parseUtcDate(prazo));
-  if (remaining < 0) return "Prazo vencido";
-  if (remaining <= 10) return "Próximos 10 dias úteis";
-  return "No prazo";
-}
 
 function makeFlowElement(tag, className, text) {
   const node = document.createElement(tag);
@@ -404,7 +297,7 @@ function matchesLicitacaoSelection(d, selection = {}) {
   );
 }
 
-function renderLicitacaoFlow(data, today = new Date()) {
+function renderLicitacaoFlow(data) {
   const container = Object.assign(makeFlowElement("div", "casc-chart"), {
     value: {pub_etapa: null, pub_prazo: null, homolog_etapa: null, homolog_prazo: null}
   });
@@ -544,17 +437,7 @@ function matchesInicioObraSelection(d, selection = null) {
 const data = baseData.filter(d =>
   (selectedSituacao == null || d.situacao === selectedSituacao) &&
   (selectedSuspensiva == null || d.situacao_suspensiva === selectedSuspensiva)
-).map(d => ({
-  ...d,
-  data_limite_licitacao_casa_civil: DATA_LIMITE_LICITACAO_CASA_CIVIL,
-  status_regra_casa_civil: getStatusRegraCasaCivil(d),
-  prazo_pub_licitacao: getPrazoPublicacao(d),
-  status_pub_licitacao: getStatusPublicacao(d, today),
-  prazo_homolog_licitacao: getPrazoHomologacao(d),
-  status_homolog_licitacao: getStatusHomologacao(d, today),
-  prazo_inicio_obra: getPrazoInicioObra(d),
-  status_inicio_obra: getStatusInicioObra(d, today),
-}));
+);
 
 const total = data.length;
 const comSuspensiva = data.filter(d => d.situacao === "Contratado - Suspensiva").length;
@@ -743,8 +626,8 @@ const selectedSuspensiva = view(makeClickableChart(
 ```js
 const comSuspData = data.filter(d => d.situacao === "Contratado - Suspensiva");
 const pendentes = comSuspData.filter(d => !d.dt_retirada_suspensiva);
-const vencida = pendentes.filter(d => getUrgenciaBucket(d, today) === "Vencida").length;
-const prox30  = pendentes.filter(d => getUrgenciaBucket(d, today) === "Próximos 30 dias").length;
+const vencida = pendentes.filter(d => d.urgencia_suspensiva === "Vencida").length;
+const prox30  = pendentes.filter(d => d.urgencia_suspensiva === "Próximos 30 dias").length;
 
 if (vencida > 0 || prox30 > 0) {
   const alertEl = document.createElement("div");
@@ -762,7 +645,7 @@ if (vencida > 0 || prox30 > 0) {
 display(alertEl);
 }
 
-const selectedCascade = view(cascadeChart(data, today));
+const selectedCascade = view(cascadeChart(data));
 ```
 
 </div>
@@ -852,7 +735,7 @@ if (publicacaoVencida > 0 || publicacaoProx30 > 0 || homologacaoVencida > 0 || h
 ```
 
 ```js
-const selectedLicitacao = view(renderLicitacaoFlow(data, today));
+const selectedLicitacao = view(renderLicitacaoFlow(data));
 ```
 
 </div>
@@ -946,7 +829,7 @@ if (inicioPrazoVencido > 0 || inicioProx10 > 0) {
 ```js
 const PAGE_SIZE = 50;
 const tableData = data.filter(d =>
-  matchesCascadeSelection(d, selectedCascade, today) &&
+  matchesCascadeSelection(d, selectedCascade) &&
   matchesLicitacaoSelection(d, selectedLicitacao) &&
   matchesCasaCivilSelection(d, selectedCasaCivil) &&
   matchesInicioObraSelection(d, selectedInicioObra)

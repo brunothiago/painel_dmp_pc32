@@ -11,7 +11,7 @@ export function metricGrid(metrics) {
   return grid;
 }
 
-export function metricCard({label, value, detail, tone = "default"}) {
+function metricCard({label, value, detail, tone = "default"}) {
   const card = createNode("article", `metric-card tone-${tone}`);
   const labelNode = createNode("p", "metric-label", label);
   const valueRow = createNode("div", "metric-value-row");

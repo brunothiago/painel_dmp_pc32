@@ -3,3 +3,5 @@ dist/
 src/.observablehq/cache/
 .DS_Store
 /base_pc_32.csv
+.env
+config.env
