@@ -929,7 +929,7 @@ function makePager(total, totalRows, pageSize) {
   return el;
 }
 
-function makeExportButton(rows) {
+function makeExportButton(rows, columns) {
   const btn = document.createElement("button");
   btn.className = "export-btn";
   btn.type = "button";
@@ -955,7 +955,7 @@ function makeExportButton(rows) {
 
     const exportRows = rows.map((row) => {
       const exportRow = {};
-      for (const col of exportColumns) {
+      for (const col of columns) {
         let value = row[col] ?? "";
         if (col === "vlr_repasse" && value !== "") value = Number(value) || 0;
         if (dateColumns.has(col)) value = value ? formatDate(value) : "";
@@ -964,11 +964,13 @@ function makeExportButton(rows) {
       return exportRow;
     });
     const worksheet = XLSX.utils.json_to_sheet(exportRows);
-    const currencyColIndex = exportColumns.indexOf("vlr_repasse");
-    const currencyColName = XLSX.utils.encode_col(currencyColIndex);
-    for (let rowIndex = 2; rowIndex <= exportRows.length + 1; rowIndex += 1) {
-      const cellRef = `${currencyColName}${rowIndex}`;
-      if (worksheet[cellRef]) worksheet[cellRef].z = "#,##0.00";
+    const currencyColIndex = columns.indexOf("vlr_repasse");
+    if (currencyColIndex >= 0) {
+      const currencyColName = XLSX.utils.encode_col(currencyColIndex);
+      for (let rowIndex = 2; rowIndex <= exportRows.length + 1; rowIndex += 1) {
+        const cellRef = `${currencyColName}${rowIndex}`;
+        if (worksheet[cellRef]) worksheet[cellRef].z = "#,##0.00";
+      }
     }
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Tabela Filtrada");
@@ -979,11 +981,11 @@ function makeExportButton(rows) {
   return btn;
 }
 
-function makeTableControls(rows, totalPages, pageSize) {
+function makeTableControls(rows, totalPages, pageSize, columns) {
   const wrap = document.createElement("div");
   wrap.className = "table-controls";
   const pagerView = makePager(totalPages, rows.length, pageSize);
-  const exportBtn = makeExportButton(rows);
+  const exportBtn = makeExportButton(rows, columns);
   wrap.value = pagerView.value;
   pagerView.addEventListener("input", () => {
     wrap.value = pagerView.value;
@@ -993,7 +995,82 @@ function makeTableControls(rows, totalPages, pageSize) {
   return wrap;
 }
 
-const pageNum = view(makeTableControls(tableData, totalPages, PAGE_SIZE));
+function makeColumnPicker(columns, headers) {
+  const selected = new Set(columns);
+  const wrap = Object.assign(document.createElement("div"), { value: [...columns] });
+  wrap.className = "col-picker";
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "col-picker__toggle";
+  toggle.textContent = "Personalizar colunas";
+
+  const panel = document.createElement("div");
+  panel.className = "col-picker__panel";
+  panel.hidden = true;
+
+  const actions = document.createElement("div");
+  actions.className = "col-picker__actions";
+  const selectAll = document.createElement("button");
+  selectAll.type = "button";
+  selectAll.className = "col-picker__action-btn";
+  selectAll.textContent = "Selecionar todas";
+  const clearAll = document.createElement("button");
+  clearAll.type = "button";
+  clearAll.className = "col-picker__action-btn";
+  clearAll.textContent = "Limpar todas";
+  actions.append(selectAll, clearAll);
+
+  const grid = document.createElement("div");
+  grid.className = "col-picker__grid";
+
+  const chips = columns.map(col => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "col-picker__chip is-active";
+    chip.textContent = headers[col] ?? col;
+    chip.dataset.col = col;
+    chip.addEventListener("click", () => {
+      if (selected.has(col)) { selected.delete(col); chip.classList.remove("is-active"); }
+      else { selected.add(col); chip.classList.add("is-active"); }
+      emit();
+    });
+    return chip;
+  });
+  grid.append(...chips);
+
+  selectAll.addEventListener("click", () => {
+    columns.forEach(col => selected.add(col));
+    chips.forEach(c => c.classList.add("is-active"));
+    emit();
+  });
+  clearAll.addEventListener("click", () => {
+    selected.clear();
+    chips.forEach(c => c.classList.remove("is-active"));
+    emit();
+  });
+
+  toggle.addEventListener("click", () => {
+    panel.hidden = !panel.hidden;
+    toggle.classList.toggle("is-open");
+  });
+
+  function emit() {
+    wrap.value = columns.filter(c => selected.has(c));
+    wrap.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  panel.append(actions, grid);
+  wrap.append(toggle, panel);
+  return wrap;
+}
+
+const selectedColumns = view(makeColumnPicker(exportColumns, exportHeaders));
+```
+
+```js
+const activeColumns = selectedColumns;
+const pageNum = view(makeTableControls(tableData, totalPages, PAGE_SIZE, activeColumns));
 ```
 
 ```js
@@ -1003,7 +1080,7 @@ const tciLinkCol = d => d
   ? html`<a href=${`https://saci.cidades.gov.br/contratos/${d}`} target="_blank" rel="noopener noreferrer">${d}</a>`
   : "—";
 display(Inputs.table(pageData, {
-  columns: exportColumns,
+  columns: activeColumns,
   select: false,
   header: {
     num_convenio: "Convênio", cod_tci: "TCI", secretaria: "Secretaria",
