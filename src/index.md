@@ -93,16 +93,22 @@ function valStr(v) {
   return String(v).trim();
 }
 
+function diffLabel(value) {
+  if (value === "novo") return "Novo";
+  if (value === "alterado") return "Alterado";
+  return "Sem alteração";
+}
+
 const previousByKey = new Map(previousRawData.map(d => [rowKey(d), d]));
 const currentKeys = new Set(rawDataParsed.map(d => rowKey(d)));
 
 const rawData = rawDataParsed.map(d => {
   const key = rowKey(d);
   const prev = previousByKey.get(key);
-  if (!prev) return {...d, _diff: "novo", _diffCampos: []};
+  if (!prev) return {...d, _diff: "novo", _diff_label: diffLabel("novo"), _diffCampos: []};
   const campos = diffFields.filter(f => valStr(d[f]) !== valStr(prev[f]));
-  if (campos.length === 0) return {...d, _diff: null, _diffCampos: []};
-  return {...d, _diff: "alterado", _diffCampos: campos};
+  if (campos.length === 0) return {...d, _diff: null, _diff_label: diffLabel(null), _diffCampos: []};
+  return {...d, _diff: "alterado", _diff_label: diffLabel("alterado"), _diffCampos: campos};
 });
 
 const secretarias = [...new Set(rawData.map(d => d.secretaria).filter(Boolean))].sort();
@@ -1009,16 +1015,15 @@ const tableData = data.filter(d =>
   matchesInicioObraSelection(d, selectedInicioObra)
 );
 
-const totalPages = Math.max(1, Math.ceil(tableData.length / PAGE_SIZE));
 const exportColumns = [
-  "_diff", "num_convenio", "cod_tci", "secretaria", "fase", "modalidade",
+  "_diff_label", "num_convenio", "cod_tci", "secretaria", "fase", "modalidade",
   "situacao", "situacao_suspensiva", "dt_assinatura", "dt_vencimento_suspensiva",
   "dt_retirada_suspensiva", "dt_lae", "data_limite_licitacao_casa_civil", "status_regra_casa_civil", "prazo_pub_licitacao", "status_pub_licitacao",
   "dt_pub_licitacao", "prazo_homolog_licitacao", "status_homolog_licitacao", "dt_homolog_licitacao",
   "dt_vrpl", "dt_aio", "prazo_inicio_obra", "status_inicio_obra", "dt_inicio_obra", "vlr_repasse",
 ];
 const exportHeaders = {
-  _diff: "Alteração",
+  _diff_label: "Alteração",
   num_convenio: "Convênio",
   cod_tci: "TCI",
   secretaria: "Secretaria",
@@ -1045,73 +1050,6 @@ const exportHeaders = {
   dt_inicio_obra: "Início Obra",
   vlr_repasse: "Repasse (R$)",
 };
-
-function makePager(total, totalRows, pageSize) {
-  const el = Object.assign(document.createElement("div"), { value: 1 });
-  el.className = "pager";
-
-  function render(cur) {
-    el.innerHTML = "";
-    const from = (cur - 1) * pageSize + 1;
-    const to = Math.min(cur * pageSize, totalRows);
-    const info = document.createElement("span");
-    info.className = "pager-info";
-    info.textContent = `${from}–${to} de ${totalRows}`;
-    el.appendChild(info);
-
-    const MAX_VISIBLE = 7;
-    let pages = [];
-
-    if (total <= MAX_VISIBLE) {
-      pages = Array.from({ length: total }, (_, i) => i + 1);
-    } else {
-      pages = [1];
-      const left = Math.max(2, cur - 2);
-      const right = Math.min(total - 1, cur + 2);
-      if (left > 2) pages.push("…");
-      for (let i = left; i <= right; i++) pages.push(i);
-      if (right < total - 1) pages.push("…");
-      pages.push(total);
-    }
-
-    // prev
-    const prev = document.createElement("button");
-    prev.textContent = "‹";
-    prev.className = "pager-btn" + (cur === 1 ? " disabled" : "");
-    prev.disabled = cur === 1;
-    prev.addEventListener("click", () => go(cur - 1));
-    el.appendChild(prev);
-
-    for (const p of pages) {
-      const btn = document.createElement(p === "…" ? "span" : "button");
-      btn.textContent = p;
-      if (p === "…") {
-        btn.className = "pager-ellipsis";
-      } else {
-        btn.className = "pager-btn" + (p === cur ? " active" : "");
-        btn.addEventListener("click", () => go(p));
-      }
-      el.appendChild(btn);
-    }
-
-    // next
-    const next = document.createElement("button");
-    next.textContent = "›";
-    next.className = "pager-btn" + (cur === total ? " disabled" : "");
-    next.disabled = cur === total;
-    next.addEventListener("click", () => go(cur + 1));
-    el.appendChild(next);
-  }
-
-  function go(p) {
-    el.value = p;
-    render(p);
-    el.dispatchEvent(new Event("input", { bubbles: true }));
-  }
-
-  render(1);
-  return el;
-}
 
 function makeExportButton(rows, columns) {
   const btn = document.createElement("button");
@@ -1141,7 +1079,7 @@ function makeExportButton(rows, columns) {
       const exportRow = {};
       for (const col of columns) {
         let value = row[col] ?? "";
-        if (col === "_diff") { value = value || ""; }
+        if (col === "_diff_label") { value = value || ""; }
         else if (col === "vlr_repasse" && value !== "") value = Number(value) || 0;
         else if (dateColumns.has(col)) value = value ? formatDate(value) : "";
         exportRow[exportHeaders[col] ?? col] = value;
@@ -1166,17 +1104,133 @@ function makeExportButton(rows, columns) {
   return btn;
 }
 
-function makeTableControls(rows, totalPages, pageSize, columns) {
+function makePager(totalRows, pageSize) {
+  const el = Object.assign(document.createElement("div"), { value: 1 });
+  el.className = "pager";
+
+  el.setState = ({ totalRows: nextTotalRows = totalRows, page = el.value } = {}) => {
+    totalRows = nextTotalRows;
+    const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+    const currentPage = Math.min(Math.max(1, page), totalPages);
+    el.value = currentPage;
+    el.innerHTML = "";
+
+    const from = totalRows === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+    const to = totalRows === 0 ? 0 : Math.min(currentPage * pageSize, totalRows);
+    const info = document.createElement("span");
+    info.className = "pager-info";
+    info.textContent = `${from}–${to} de ${totalRows}`;
+    el.appendChild(info);
+
+    const MAX_VISIBLE = 7;
+    let pages = [];
+    if (totalPages <= MAX_VISIBLE) {
+      pages = Array.from({length: totalPages}, (_, i) => i + 1);
+    } else {
+      pages = [1];
+      const left = Math.max(2, currentPage - 2);
+      const right = Math.min(totalPages - 1, currentPage + 2);
+      if (left > 2) pages.push("…");
+      for (let i = left; i <= right; i += 1) pages.push(i);
+      if (right < totalPages - 1) pages.push("…");
+      pages.push(totalPages);
+    }
+
+    const go = (nextPage) => {
+      if (nextPage === currentPage) return;
+      el.value = nextPage;
+      el.dispatchEvent(new Event("input", {bubbles: true}));
+    };
+
+    const prev = document.createElement("button");
+    prev.textContent = "‹";
+    prev.className = "pager-btn" + (currentPage === 1 ? " disabled" : "");
+    prev.disabled = currentPage === 1;
+    prev.addEventListener("click", () => go(currentPage - 1));
+    el.appendChild(prev);
+
+    for (const p of pages) {
+      const btn = document.createElement(p === "…" ? "span" : "button");
+      btn.textContent = p;
+      if (p === "…") {
+        btn.className = "pager-ellipsis";
+      } else {
+        btn.className = "pager-btn" + (p === currentPage ? " active" : "");
+        btn.addEventListener("click", () => go(p));
+      }
+      el.appendChild(btn);
+    }
+
+    const next = document.createElement("button");
+    next.textContent = "›";
+    next.className = "pager-btn" + (currentPage === totalPages ? " disabled" : "");
+    next.disabled = currentPage === totalPages;
+    next.addEventListener("click", () => go(currentPage + 1));
+    el.appendChild(next);
+  };
+
+  el.setState({totalRows, page: 1});
+  return el;
+}
+
+function makeTableControls(rows, columns, pagerView) {
   const wrap = document.createElement("div");
   wrap.className = "table-controls";
-  const pagerView = makePager(totalPages, rows.length, pageSize);
   const exportBtn = makeExportButton(rows, columns);
-  wrap.value = pagerView.value;
-  pagerView.addEventListener("input", () => {
-    wrap.value = pagerView.value;
-    wrap.dispatchEvent(new Event("input", {bubbles: true}));
-  });
   wrap.append(pagerView, exportBtn);
+  return wrap;
+}
+
+function makePaginatedTable(rows, columns, options) {
+  const wrap = document.createElement("div");
+  const pagerView = makePager(rows.length, PAGE_SIZE);
+  const controls = makeTableControls(rows, columns, pagerView);
+  const tableView = Inputs.table(rows, {...options, rows: rows.length});
+  wrap.append(controls, tableView);
+
+  let observer;
+
+  const syncPagination = ({resetPage = false} = {}) => {
+    const bodyRows = Array.from(tableView.querySelectorAll("tbody tr"));
+    const totalRows = bodyRows.length;
+    const requestedPage = resetPage ? 1 : pagerView.value;
+    const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
+    const currentPage = Math.min(Math.max(1, requestedPage), totalPages);
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+
+    bodyRows.forEach((row, index) => {
+      row.hidden = index < start || index >= end;
+    });
+
+    pagerView.setState({totalRows, page: currentPage});
+  };
+
+  pagerView.addEventListener("input", () => {
+    syncPagination();
+  });
+
+  const bindSortReset = () => {
+    tableView.querySelectorAll("thead th").forEach((cell) => {
+      if (cell.dataset.pageSortBound === "true") return;
+      cell.dataset.pageSortBound = "true";
+      cell.addEventListener("click", () => {
+        requestAnimationFrame(() => syncPagination({resetPage: true}));
+      });
+    });
+  };
+
+  requestAnimationFrame(() => {
+    bindSortReset();
+    syncPagination({resetPage: true});
+
+    observer = new MutationObserver(() => {
+      bindSortReset();
+      syncPagination();
+    });
+    observer.observe(tableView, {childList: true, subtree: true});
+  });
+
   return wrap;
 }
 
@@ -1255,11 +1309,9 @@ const selectedColumns = view(makeColumnPicker(exportColumns, exportHeaders));
 
 ```js
 const activeColumns = selectedColumns;
-const pageNum = view(makeTableControls(tableData, totalPages, PAGE_SIZE, activeColumns));
 ```
 
 ```js
-const pageData = tableData.slice((pageNum - 1) * PAGE_SIZE, pageNum * PAGE_SIZE);
 const dateCol = d => d ? formatDate(d) : "—";
 const tciLinkCol = d => d
   ? html`<a href=${`https://saci.cidades.gov.br/contratos/${d}`} target="_blank" rel="noopener noreferrer">${d}</a>`
@@ -1275,21 +1327,18 @@ const diffFieldLabels = {
   urgencia_suspensiva: "Urgência Susp.",
 };
 
-function diffCol(value, i) {
-  if (!value) return "—";
-  const row = pageData[i];
-  const campos = (row?._diffCampos || []).map(f => diffFieldLabels[f] || f).join(", ");
-  const label = value === "novo" ? "Novo" : "Alterado";
-  const cls = value === "novo" ? "diff-pill--novo" : "diff-pill--alterado";
+function diffCol(value) {
+  if (!value || value === "Sem alteração") return "—";
+  const cls = value === "Novo" ? "diff-pill--novo" : "diff-pill--alterado";
+  const label = diffFieldLabels[value] || value;
   const el = html`<span class="diff-pill ${cls}">${label}</span>`;
-  if (campos) el.title = `Campos: ${campos}`;
   return el;
 }
-display(Inputs.table(pageData, {
+display(makePaginatedTable(tableData, activeColumns, {
   columns: activeColumns,
   select: false,
   header: {
-    _diff: "Alteração", num_convenio: "Convênio", cod_tci: "TCI", secretaria: "Secretaria",
+    _diff_label: "Alteração", num_convenio: "Convênio", cod_tci: "TCI", secretaria: "Secretaria",
     fase: "Fase", modalidade: "Modalidade", situacao: "Situação Contrato",
     situacao_suspensiva: "Situação Suspensiva",
     dt_vencimento_suspensiva: "Venc. Suspensiva", dt_retirada_suspensiva: "Retirada Suspensiva",
@@ -1300,7 +1349,7 @@ display(Inputs.table(pageData, {
     dt_inicio_obra: "Início Obra", vlr_repasse: "Repasse (R$)",
   },
   format: {
-    _diff: diffCol,
+    _diff_label: diffCol,
     cod_tci: tciLinkCol,
     vlr_repasse: d => d.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
     dt_assinatura: dateCol, dt_lae: dateCol, data_limite_licitacao_casa_civil: dateCol, prazo_pub_licitacao: dateCol, dt_pub_licitacao: dateCol,
@@ -1308,7 +1357,6 @@ display(Inputs.table(pageData, {
     dt_homolog_licitacao: dateCol, dt_vrpl: dateCol, dt_aio: dateCol,
     dt_inicio_obra: dateCol, dt_vencimento_suspensiva: dateCol, dt_retirada_suspensiva: dateCol,
   },
-  rows: PAGE_SIZE,
   multiple: false,
 }));
 ```
