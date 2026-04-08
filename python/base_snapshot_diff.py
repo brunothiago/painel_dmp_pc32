@@ -10,6 +10,7 @@ import shutil
 
 
 KEY_FIELD = "num_convenio"
+FALLBACK_KEY_FIELD = "cod_tci"
 
 SOURCE_FIELDS = {
     "cod_tci",
@@ -75,13 +76,21 @@ def _read_csv(path: Path) -> tuple[list[str], list[dict[str, str]]]:
     return reader.fieldnames, rows
 
 
-def _index_rows(rows: list[dict[str, str]], field: str, label: str) -> dict[str, dict[str, str]]:
+def _row_key(row: dict[str, str]) -> str:
+    """Retorna num_convenio como chave; se vazio, usa cod_tci como fallback."""
+    key = (row.get(KEY_FIELD) or "").strip()
+    if not key:
+        key = (row.get(FALLBACK_KEY_FIELD) or "").strip()
+    return key
+
+
+def _index_rows(rows: list[dict[str, str]], label: str) -> dict[str, dict[str, str]]:
     indexed: dict[str, dict[str, str]] = {}
     duplicates: list[str] = []
     missing: int = 0
 
     for row in rows:
-        key = (row.get(field) or "").strip()
+        key = _row_key(row)
         if not key:
             missing += 1
             continue
@@ -91,10 +100,10 @@ def _index_rows(rows: list[dict[str, str]], field: str, label: str) -> dict[str,
         indexed[key] = row
 
     if missing:
-        raise ValueError(f"{label}: {missing} linhas sem chave '{field}'.")
+        raise ValueError(f"{label}: {missing} linhas sem chave '{KEY_FIELD}' nem '{FALLBACK_KEY_FIELD}'.")
     if duplicates:
         examples = ", ".join(sorted(set(duplicates))[:5])
-        raise ValueError(f"{label}: chaves duplicadas em '{field}': {examples}")
+        raise ValueError(f"{label}: chaves duplicadas: {examples}")
     return indexed
 
 
@@ -187,7 +196,7 @@ def _build_detail_rows(
             }
         )
 
-    comparable_fields = [field for field in header if field != KEY_FIELD]
+    comparable_fields = [field for field in header if field not in (KEY_FIELD, FALLBACK_KEY_FIELD)]
 
     for key in sorted(previous_keys & current_keys):
         previous = previous_rows[key]
@@ -364,8 +373,8 @@ def generate_daily_snapshot_diff(
     header, current_rows_raw = _read_csv(snapshot_path)
     _, previous_rows_raw = _read_csv(previous_snapshot)
 
-    current_rows = _index_rows(current_rows_raw, KEY_FIELD, f"Snapshot atual ({snapshot_path.name})")
-    previous_rows = _index_rows(previous_rows_raw, KEY_FIELD, f"Snapshot anterior ({previous_snapshot.name})")
+    current_rows = _index_rows(current_rows_raw, f"Snapshot atual ({snapshot_path.name})")
+    previous_rows = _index_rows(previous_rows_raw, f"Snapshot anterior ({previous_snapshot.name})")
 
     detail_rows, stats = _build_detail_rows(previous_rows, current_rows, header)
     status_changes = _summarize_status_changes(detail_rows)
