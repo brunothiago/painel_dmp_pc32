@@ -18,6 +18,12 @@ const previousRawText = await FileAttachment("data/base_pc_32_previous.csv").tex
 const baseDiffLatest = await FileAttachment("data/base_diff_latest.json").json();
 const dsv = dsvFormat(";");
 
+function parseDate(v) {
+  if (!v) return null;
+  const d = new Date(`${v}T12:00:00Z`);
+  return isNaN(d) ? null : d;
+}
+
 function parseBaseRow(d) {
   return {
   cod_tci: d.cod_tci,
@@ -31,21 +37,21 @@ function parseBaseRow(d) {
   fase: d.dsc_fase_pac,
   modalidade: d.txt_modalidade,
   situacao: d.dsc_situacao_contrato_mcid,
-  dt_assinatura: d.dte_assinatura_contrato,
+  dt_assinatura: parseDate(d.dte_assinatura_contrato),
   situacao_suspensiva: d.situacao_da_analise_suspensiva,
-  dt_vencimento_suspensiva: d.vencimento_da_suspensiva,
-  dt_retirada_suspensiva: d.dte_retirada_suspensiva,
-  dt_lae: d.dte_primeira_data_lae,
-  dt_pub_licitacao: d.dte_publicacao_licitacao,
-  dt_homolog_licitacao: d.dte_homologacao_licitacao,
-  dt_vrpl: d.dte_vrpl,
-  dt_aio: d.dte_aio,
-  dt_inicio_obra: d.dte_inicio_obra_mcid,
+  dt_vencimento_suspensiva: parseDate(d.vencimento_da_suspensiva),
+  dt_retirada_suspensiva: parseDate(d.dte_retirada_suspensiva),
+  dt_lae: parseDate(d.dte_primeira_data_lae),
+  dt_pub_licitacao: parseDate(d.dte_publicacao_licitacao),
+  dt_homolog_licitacao: parseDate(d.dte_homologacao_licitacao),
+  dt_vrpl: parseDate(d.dte_vrpl),
+  dt_aio: parseDate(d.dte_aio),
+  dt_inicio_obra: parseDate(d.dte_inicio_obra_mcid),
   vlr_repasse: +d.vlr_repasse || 0,
   status_suspensiva: d.status_suspensiva,
   flag_publicacao_licitacao: d.flag_publicacao_licitacao,
   flag_homologacao_licitacao: d.flag_homologacao_licitacao,
-  ultima_data_relevante: d.ultima_data_relevante,
+  ultima_data_relevante: parseDate(d.ultima_data_relevante),
   fase_atual: d.fase_atual,
   dias_ate_publicacao: d.dias_ate_publicacao ? +d.dias_ate_publicacao : null,
   dias_publicacao_ate_homologacao: d.dias_publicacao_ate_homologacao ? +d.dias_publicacao_ate_homologacao : null,
@@ -53,13 +59,13 @@ function parseBaseRow(d) {
   dias_vrpl_ate_aio: d.dias_vrpl_ate_aio ? +d.dias_vrpl_ate_aio : null,
   dias_aio_ate_inicio_obra: d.dias_aio_ate_inicio_obra ? +d.dias_aio_ate_inicio_obra : null,
   faixa_repasse: d.faixa_repasse,
-  prazo_pub_licitacao: d.prazo_pub_licitacao,
+  prazo_pub_licitacao: parseDate(d.prazo_pub_licitacao),
   status_pub_licitacao: d.status_pub_licitacao,
-  prazo_homolog_licitacao: d.prazo_homolog_licitacao,
+  prazo_homolog_licitacao: parseDate(d.prazo_homolog_licitacao),
   status_homolog_licitacao: d.status_homolog_licitacao,
-  prazo_inicio_obra: d.prazo_inicio_obra,
+  prazo_inicio_obra: parseDate(d.prazo_inicio_obra),
   status_inicio_obra: d.status_inicio_obra,
-  data_limite_licitacao_casa_civil: d.data_limite_licitacao_casa_civil,
+  data_limite_licitacao_casa_civil: parseDate(d.data_limite_licitacao_casa_civil),
   status_regra_casa_civil: d.status_regra_casa_civil,
   urgencia_suspensiva: d.urgencia_suspensiva,
   };

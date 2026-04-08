@@ -24,11 +24,15 @@ export function formatPercent(value) {
   return percentFormatter.format(value ?? 0);
 }
 
+const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
 export function formatDate(value) {
   if (!value) return "—";
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(`${value}T12:00:00Z`));
+  const d = value instanceof Date ? value : new Date(`${value}T12:00:00Z`);
+  return isNaN(d) ? "—" : dateFormatter.format(d);
 }
