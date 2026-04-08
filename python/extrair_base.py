@@ -31,6 +31,7 @@ DIFF_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "diff")
 LATEST_DIFF_JSON = os.path.join(os.path.dirname(__file__), "..", "src", "data", "base_diff_latest.json")
 PREVIOUS_CSV_OUTPUT = os.path.join(os.path.dirname(__file__), "..", "src", "data", "base_pc_32_previous.csv")
 FIRST_CSV_OUTPUT = os.path.join(os.path.dirname(__file__), "..", "src", "data", "base_pc_32_first.csv")
+CUMULATIVE_DIFF_OUTPUT = os.path.join(os.path.dirname(__file__), "..", "src", "data", "base_alteracoes.csv")
 
 QUERY = text("""
 WITH publicacao_licitacao AS (
@@ -254,6 +255,7 @@ def main():
         latest_json_path=LATEST_DIFF_JSON,
         previous_csv_path=PREVIOUS_CSV_OUTPUT,
         first_csv_path=FIRST_CSV_OUTPUT,
+        cumulative_csv_path=CUMULATIVE_DIFF_OUTPUT,
     )
 
     print(f"Snapshot salvo em {artifacts.snapshot_path}")
@@ -263,6 +265,8 @@ def main():
         print(f"Snapshot anterior consumível pelo painel salvo em {artifacts.previous_csv_path}")
     if artifacts.first_csv_path:
         print(f"Primeiro snapshot consumível pelo painel salvo em {artifacts.first_csv_path}")
+    if artifacts.cumulative_csv_path:
+        print(f"Histórico cumulativo consumível pelo painel salvo em {artifacts.cumulative_csv_path}")
     if artifacts.summary_md_path and artifacts.detail_csv_path:
         print(f"Relatório salvo em {artifacts.summary_md_path}")
         print(f"Detalhe salvo em {artifacts.detail_csv_path}")

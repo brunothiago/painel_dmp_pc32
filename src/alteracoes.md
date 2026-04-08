@@ -10,8 +10,7 @@ import {dsvFormat} from "d3-dsv";
 import {metricGrid} from "./components/cards.js";
 import {formatNumber, formatDate} from "./lib/formatters.js";
 
-const rawText = await FileAttachment("data/base_pc_32.csv").text();
-const previousRawText = await FileAttachment("data/base_pc_32_first.csv").text();
+const changesRawText = await FileAttachment("data/base_alteracoes.csv").text();
 const baseDiffLatest = await FileAttachment("data/base_diff_latest.json").json();
 const dsv = dsvFormat(";");
 
@@ -21,68 +20,41 @@ function parseDate(v) {
   return isNaN(d) ? null : d;
 }
 
-function parseBaseRow(d) {
+function parseChangeRow(d) {
   return {
+    data: parseDate(d.data),
     cod_tci: d.cod_tci,
     num_convenio: d.num_convenio,
-    uf: d.txt_uf,
-    municipio: d.txt_municipio,
-    secretaria: d.txt_sigla_secretaria,
-    modalidade: d.txt_modalidade,
-    situacao: d.dsc_situacao_contrato_mcid,
-    dt_assinatura: parseDate(d.dte_assinatura_contrato),
-    situacao_suspensiva: d.situacao_da_analise_suspensiva,
-    dt_vencimento_suspensiva: parseDate(d.vencimento_da_suspensiva),
-    dt_retirada_suspensiva: parseDate(d.dte_retirada_suspensiva),
-    dt_lae: parseDate(d.dte_primeira_data_lae),
-    dt_pub_licitacao: parseDate(d.dte_publicacao_licitacao),
-    dt_homolog_licitacao: parseDate(d.dte_homologacao_licitacao),
-    dt_vrpl: parseDate(d.dte_vrpl),
-    dt_aio: parseDate(d.dte_aio),
-    dt_inicio_obra: parseDate(d.dte_inicio_obra_mcid),
-    vlr_repasse: +d.vlr_repasse || 0,
-    status_suspensiva: d.status_suspensiva,
-    fase_atual: d.fase_atual,
-    status_pub_licitacao: d.status_pub_licitacao,
-    status_homolog_licitacao: d.status_homolog_licitacao,
-    status_inicio_obra: d.status_inicio_obra,
-    status_regra_casa_civil: d.status_regra_casa_civil,
-    urgencia_suspensiva: d.urgencia_suspensiva,
+    uf: d.uf,
+    secretaria: d.secretaria,
+    tipo: d.tipo,
+    campo: d.campo,
+    anterior: d.valor_anterior,
+    atual: d.valor_atual,
   };
 }
 
-const rawData = dsv.parse(rawText, parseBaseRow);
-const previousRawData = dsv.parse(previousRawText, parseBaseRow);
-
-function rowKey(d) {
-  return (d.num_convenio || d.cod_tci || "").trim();
-}
-
-function valStr(v) {
-  if (v == null) return "";
-  if (v instanceof Date) return v.toISOString();
-  return String(v).trim();
-}
-
-const diffFields = [
-  "situacao", "situacao_suspensiva", "status_suspensiva", "fase_atual",
-  "dt_retirada_suspensiva", "dt_lae", "dt_pub_licitacao", "dt_homolog_licitacao",
-  "dt_vrpl", "dt_aio", "dt_inicio_obra", "vlr_repasse",
-  "status_pub_licitacao", "status_homolog_licitacao", "status_inicio_obra",
-  "status_regra_casa_civil", "urgencia_suspensiva",
-];
+const rawChanges = dsv.parse(changesRawText, parseChangeRow);
 
 const diffFieldLabels = {
-  situacao: "Situacao", situacao_suspensiva: "Sit. Suspensiva", status_suspensiva: "Status Suspensiva",
-  fase_atual: "Fase Atual", dt_retirada_suspensiva: "Ret. Suspensiva", dt_lae: "LAE",
-  dt_pub_licitacao: "Pub. Licitacao", dt_homolog_licitacao: "Homolog.", dt_vrpl: "VRPL",
-  dt_aio: "AIO", dt_inicio_obra: "Inicio Obra", vlr_repasse: "Repasse",
-  status_pub_licitacao: "Status Pub.", status_homolog_licitacao: "Status Homolog.",
-  status_inicio_obra: "Status Inicio Obra", status_regra_casa_civil: "Regra Casa Civil",
+  dsc_situacao_contrato_mcid: "Situacao",
+  situacao_da_analise_suspensiva: "Sit. Suspensiva",
+  status_suspensiva: "Status Suspensiva",
+  fase_atual: "Fase Atual",
+  dte_retirada_suspensiva: "Ret. Suspensiva",
+  dte_primeira_data_lae: "LAE",
+  dte_publicacao_licitacao: "Pub. Licitacao",
+  dte_homologacao_licitacao: "Homolog.",
+  dte_vrpl: "VRPL",
+  dte_aio: "AIO",
+  dte_inicio_obra_mcid: "Inicio Obra",
+  vlr_repasse: "Repasse",
+  status_pub_licitacao: "Status Pub.",
+  status_homolog_licitacao: "Status Homolog.",
+  status_inicio_obra: "Status Inicio Obra",
+  status_regra_casa_civil: "Regra Casa Civil",
   urgencia_suspensiva: "Urgencia Susp.",
 };
-
-const previousByKey = new Map(previousRawData.map(d => [rowKey(d), d]));
 
 function fmt(v) {
   if (v == null || v === "") return "(vazio)";
@@ -91,64 +63,28 @@ function fmt(v) {
   return String(v);
 }
 
-const alteracaoRows = [];
-const empreendimentosAlterados = new Set();
+const alteracaoRows = rawChanges.map(d => ({
+  data: d.data,
+  data_fmt: fmt(d.data),
+  num_convenio: d.num_convenio || "—",
+  cod_tci: d.cod_tci || "—",
+  uf: d.uf || "—",
+  secretaria: d.secretaria || "—",
+  tipo: d.tipo || "—",
+  campo: d.campo ? (diffFieldLabels[d.campo] || d.campo) : "—",
+  anterior: fmt(d.anterior),
+  atual: fmt(d.atual),
+}));
 
-for (const d of rawData) {
-  const key = rowKey(d);
-  const prev = previousByKey.get(key);
+alteracaoRows.sort((a, b) => {
+  const da = a.data instanceof Date ? a.data.getTime() : 0;
+  const db = b.data instanceof Date ? b.data.getTime() : 0;
+  return db - da;
+});
 
-  if (!prev) {
-    empreendimentosAlterados.add(key);
-    alteracaoRows.push({
-      num_convenio: d.num_convenio || "—",
-      cod_tci: d.cod_tci || "—",
-      uf: d.uf || "—",
-      secretaria: d.secretaria || "—",
-      tipo: "Novo",
-      campo: "—",
-      anterior: "—",
-      atual: "—",
-    });
-    continue;
-  }
-
-  const campos = diffFields.filter(f => valStr(d[f]) !== valStr(prev[f]));
-  if (campos.length === 0) continue;
-
-  empreendimentosAlterados.add(key);
-  for (const f of campos) {
-    alteracaoRows.push({
-      num_convenio: d.num_convenio || "—",
-      cod_tci: d.cod_tci || "—",
-      uf: d.uf || "—",
-      secretaria: d.secretaria || "—",
-      tipo: "Alterado",
-      campo: diffFieldLabels[f] || f,
-      anterior: fmt(prev[f]),
-      atual: fmt(d[f]),
-    });
-  }
-}
-
-const previousKeys = new Set(previousRawData.map(d => rowKey(d)));
-const currentKeys = new Set(rawData.map(d => rowKey(d)));
-for (const d of previousRawData) {
-  const key = rowKey(d);
-  if (!currentKeys.has(key)) {
-    empreendimentosAlterados.add(key);
-    alteracaoRows.push({
-      num_convenio: d.num_convenio || "—",
-      cod_tci: d.cod_tci || "—",
-      uf: d.uf || "—",
-      secretaria: d.secretaria || "—",
-      tipo: "Removido",
-      campo: "—",
-      anterior: "—",
-      atual: "—",
-    });
-  }
-}
+const empreendimentosAlterados = new Set(
+  alteracaoRows.map(d => (d.num_convenio !== "—" ? d.num_convenio : d.cod_tci))
+);
 
 const snapshotPrimeiroLabel = baseDiffLatest?.snapshot_primeiro
   ? formatDate(baseDiffLatest.snapshot_primeiro)
@@ -230,8 +166,9 @@ if (filteredRows.length > 0) {
   display(html`<p class="metric-detail">${formatNumber(filteredRows.length)} registro${filteredRows.length > 1 ? "s" : ""} encontrado${filteredRows.length > 1 ? "s" : ""}</p>`);
 
   display(Inputs.table(filteredRows, {
-    columns: ["num_convenio", "cod_tci", "uf", "secretaria", "tipo", "campo", "anterior", "atual"],
+    columns: ["data_fmt", "num_convenio", "cod_tci", "uf", "secretaria", "tipo", "campo", "anterior", "atual"],
     header: {
+      data_fmt: "Data",
       num_convenio: "Convenio",
       cod_tci: "TCI",
       uf: "UF",
@@ -260,6 +197,7 @@ function makeExportAlteracoes(rows) {
 
   btn.addEventListener("click", () => {
     const exportRows = rows.map(row => ({
+      "Data": row.data_fmt,
       "Convenio": row.num_convenio,
       "TCI": row.cod_tci,
       "UF": row.uf,

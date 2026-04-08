@@ -40,6 +40,8 @@ require_command git
 DATA_PATHS=(
     "src/data/base_pc_32.csv"
     "src/data/base_pc_32_previous.csv"
+    "src/data/base_pc_32_first.csv"
+    "src/data/base_alteracoes.csv"
     "src/data/base_diff_latest.json"
     "data/historico"
 )

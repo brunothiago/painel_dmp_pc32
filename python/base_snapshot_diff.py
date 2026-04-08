@@ -66,6 +66,7 @@ class DiffArtifacts:
     latest_json_path: Path | None
     previous_csv_path: Path | None
     first_csv_path: Path | None
+    cumulative_csv_path: Path | None
 
 
 def _read_csv(path: Path) -> tuple[list[str], list[dict[str, str]]]:
@@ -429,6 +430,7 @@ def generate_daily_snapshot_diff(
     latest_json_path: str | Path | None = None,
     previous_csv_path: str | Path | None = None,
     first_csv_path: str | Path | None = None,
+    cumulative_csv_path: str | Path | None = None,
     snapshot_date: date | None = None,
 ) -> DiffArtifacts:
     snapshot_date = snapshot_date or date.today()
@@ -441,6 +443,7 @@ def generate_daily_snapshot_diff(
     latest_json = Path(latest_json_path) if latest_json_path else None
     previous_csv = Path(previous_csv_path) if previous_csv_path else None
     first_csv = Path(first_csv_path) if first_csv_path else None
+    cumulative_csv = Path(cumulative_csv_path) if cumulative_csv_path else None
 
     if previous_csv is not None:
         _write_previous_csv(previous_csv, previous_snapshot, snapshot_path)
@@ -450,6 +453,9 @@ def generate_daily_snapshot_diff(
         if first_snapshot is not None:
             first_csv.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(first_snapshot, first_csv)
+
+    if cumulative_csv is not None:
+        _write_cumulative_csv(cumulative_csv, _build_cumulative_diff(history_dir))
 
     if previous_snapshot is None:
         if latest_json is not None:
@@ -470,6 +476,7 @@ def generate_daily_snapshot_diff(
             latest_json_path=latest_json,
             previous_csv_path=previous_csv,
             first_csv_path=first_csv,
+            cumulative_csv_path=cumulative_csv,
         )
 
     header, current_rows_raw = _read_csv(snapshot_path)
@@ -513,4 +520,5 @@ def generate_daily_snapshot_diff(
         latest_json_path=latest_json,
         previous_csv_path=previous_csv,
         first_csv_path=first_csv,
+        cumulative_csv_path=cumulative_csv,
     )
