@@ -9,6 +9,7 @@ export default {
   search: false,
   pages: [
     { name: "Painel", path: "index" },
+    { name: "Alterações", path: "alteracoes" },
   ],
   head: `
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -30,6 +31,10 @@ export default {
             </div>
           </a>
         </div>
+        <nav class="site-nav">
+          <a href="./">Painel</a>
+          <a href="./alteracoes">Alterações</a>
+        </nav>
       </div>
     </div>
   `,

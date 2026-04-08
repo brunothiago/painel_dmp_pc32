@@ -257,6 +257,16 @@ const fModalidade = view(Inputs.select(
 ```
 
 ```js
+const anos = ["Todos", ...[...new Set(
+  rawData
+    .map(d => d.dt_assinatura ? d.dt_assinatura.getUTCFullYear() : null)
+    .filter(Boolean)
+)].sort()];
+
+const fAno = view(Inputs.select(anos, { label: "Ano de seleção", value: "Todos" }));
+```
+
+```js
 const fAlteracao = view(Inputs.select(
   ["Todos", "Alterados", "Novos", "Sem alteração"],
   { label: "Alterações", value: "Todos" }
@@ -270,6 +280,7 @@ const fAlteracao = view(Inputs.select(
 const baseData = fConvenio.filter(d =>
   (fSecretaria === "Todas" || d.secretaria === fSecretaria) &&
   (fModalidade === "Todas" || d.modalidade === fModalidade) &&
+  (fAno === "Todos" || (d.dt_assinatura && d.dt_assinatura.getUTCFullYear() === fAno)) &&
   (fAlteracao === "Todos" ||
    (fAlteracao === "Alterados" && d._diff === "alterado") ||
    (fAlteracao === "Novos" && d._diff === "novo") ||
@@ -991,78 +1002,6 @@ if (inicioPrazoVencido > 0 || inicioProx10 > 0) {
     </div>
   `;
   display(alertEl);
-}
-```
-
-</div>
-
-<div class="card card--alteracoes">
-
-```js
-const alteracaoRows = [];
-const prevByKey = new Map(previousRawData.map(d => [rowKey(d), d]));
-
-for (const d of data) {
-  if (!d._diff) continue;
-  const key = rowKey(d);
-  if (d._diff === "novo") {
-    alteracaoRows.push({
-      num_convenio: d.num_convenio || "—",
-      cod_tci: d.cod_tci || "—",
-      tipo: "Novo",
-      campo: "—",
-      anterior: "—",
-      atual: "—",
-    });
-    continue;
-  }
-  const prev = prevByKey.get(key);
-  if (!prev) continue;
-  for (const f of d._diffCampos) {
-    const label = diffFieldLabels[f] || f;
-    const vPrev = prev[f];
-    const vCurr = d[f];
-    const fmt = (v) => {
-      if (v == null || v === "") return "(vazio)";
-      if (v instanceof Date) return formatDate(v);
-      if (typeof v === "number") return v.toLocaleString("pt-BR");
-      return String(v);
-    };
-    alteracaoRows.push({
-      num_convenio: d.num_convenio || "—",
-      cod_tci: d.cod_tci || "—",
-      tipo: "Alterado",
-      campo: label,
-      anterior: fmt(vPrev),
-      atual: fmt(vCurr),
-    });
-  }
-}
-```
-
-```js
-if (alteracaoRows.length > 0) {
-  const heading = document.createElement("div");
-  heading.innerHTML = `<h2>Alterações desde ${baseDiffLatest?.snapshot_anterior ? formatDate(baseDiffLatest.snapshot_anterior) : "snapshot anterior"}</h2>
-  <p>${alteracaoRows.length} alteração${alteracaoRows.length > 1 ? "ões" : ""} detectada${alteracaoRows.length > 1 ? "s" : ""} em ${data.filter(d => d._diff).length} empreendimento${data.filter(d => d._diff).length > 1 ? "s" : ""}</p>`;
-  display(heading);
-
-  display(Inputs.table(alteracaoRows, {
-    columns: ["num_convenio", "cod_tci", "tipo", "campo", "anterior", "atual"],
-    header: {
-      num_convenio: "Convênio",
-      cod_tci: "TCI",
-      tipo: "Tipo",
-      campo: "Campo",
-      anterior: "Valor Anterior",
-      atual: "Valor Atual",
-    },
-    rows: 15,
-    select: false,
-    multiple: false,
-  }));
-} else {
-  display(html`<h2>Alterações</h2><p>Nenhuma alteração detectada em relação ao snapshot anterior.</p>`);
 }
 ```
 
