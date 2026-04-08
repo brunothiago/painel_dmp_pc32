@@ -100,14 +100,12 @@ function buildMetricDelta(currentValue, previousValue, formatter = formatMetricD
     return {
       ...formatter(null),
       title: "Sem snapshot anterior para comparação",
-      detail: null,
     };
   }
 
   return {
     ...formatter(currentValue - previousValue),
-    title: `Variação em relação ao snapshot de ${baseDiffLatest.snapshot_anterior}`,
-    detail: `vs. ${baseDiffLatest.snapshot_anterior}`,
+    title: `Variação em relação a ${formatDate(baseDiffLatest.snapshot_anterior)}`,
   };
 }
 ```
@@ -578,7 +576,6 @@ display(metricGrid([
   {
     label: "Total selecionadas",
     value: formatNumber(total),
-    detail: buildMetricDelta(total, previousTotal).detail,
     delta: buildMetricDelta(total, previousTotal),
     tone: "default"
   },
