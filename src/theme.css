@@ -269,25 +269,58 @@
 .metric-delta {
     display: inline-block;
     align-self: flex-start;
-    margin-top: -0.2rem;
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     font-weight: 700;
     letter-spacing: 0.01em;
     white-space: nowrap;
     line-height: 1;
-    vertical-align: super;
+    vertical-align: middle;
+    padding: 0.2rem 0.5rem;
+    border-radius: 999px;
+    cursor: default;
+    margin-left: 0.4rem;
 }
 
 .metric-delta--positive {
     color: #0f766e;
+    background: #d7ebe7;
 }
 
 .metric-delta--negative {
     color: #9a3412;
+    background: #fee2e1;
 }
 
 .metric-delta--neutral {
     color: #475569;
+    background: #f3f4f6;
+}
+
+.metric-delta.has-tooltip {
+    position: relative;
+}
+
+.metric-delta.has-tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937;
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 500;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 10;
+}
+
+.metric-delta.has-tooltip:hover::after {
+    opacity: 1;
 }
 
 .metric-detail {

@@ -20,7 +20,10 @@ function metricCard({label, value, detail, tone = "default", delta}) {
   if (delta && delta.label) {
     const deltaTone = delta.tone || "neutral";
     const deltaNode = createNode("span", `metric-delta metric-delta--${deltaTone}`, delta.label);
-    if (delta.title) deltaNode.title = delta.title;
+    if (delta.title) {
+      deltaNode.dataset.tooltip = delta.title;
+      deltaNode.classList.add("has-tooltip");
+    }
     valueRow.append(deltaNode);
   }
   card.append(labelNode, valueRow);
