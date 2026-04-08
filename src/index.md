@@ -71,8 +71,39 @@ function parseBaseRow(d) {
   };
 }
 
-const rawData = dsv.parse(rawText, parseBaseRow);
+const rawDataParsed = dsv.parse(rawText, parseBaseRow);
 const previousRawData = dsv.parse(previousRawText, parseBaseRow);
+
+// ── Diff: detectar alterações entre snapshots
+const diffFields = [
+  "situacao", "situacao_suspensiva", "status_suspensiva", "fase_atual",
+  "dt_retirada_suspensiva", "dt_lae", "dt_pub_licitacao", "dt_homolog_licitacao",
+  "dt_vrpl", "dt_aio", "dt_inicio_obra", "vlr_repasse",
+  "status_pub_licitacao", "status_homolog_licitacao", "status_inicio_obra",
+  "status_regra_casa_civil", "urgencia_suspensiva",
+];
+
+function rowKey(d) {
+  return (d.num_convenio || d.cod_tci || "").trim();
+}
+
+function valStr(v) {
+  if (v == null) return "";
+  if (v instanceof Date) return v.toISOString();
+  return String(v).trim();
+}
+
+const previousByKey = new Map(previousRawData.map(d => [rowKey(d), d]));
+const currentKeys = new Set(rawDataParsed.map(d => rowKey(d)));
+
+const rawData = rawDataParsed.map(d => {
+  const key = rowKey(d);
+  const prev = previousByKey.get(key);
+  if (!prev) return {...d, _diff: "novo", _diffCampos: []};
+  const campos = diffFields.filter(f => valStr(d[f]) !== valStr(prev[f]));
+  if (campos.length === 0) return {...d, _diff: null, _diffCampos: []};
+  return {...d, _diff: "alterado", _diffCampos: campos};
+});
 
 const secretarias = [...new Set(rawData.map(d => d.secretaria).filter(Boolean))].sort();
 const updatedAt = new Intl.DateTimeFormat("pt-BR", {
@@ -225,13 +256,24 @@ const fModalidade = view(Inputs.select(
 ));
 ```
 
+```js
+const fAlteracao = view(Inputs.select(
+  ["Todos", "Alterados", "Novos", "Sem alteração"],
+  { label: "Alterações", value: "Todos" }
+));
+```
+
 </div>
 
 ```js
 // ── baseData: filtros de topo
 const baseData = fConvenio.filter(d =>
   (fSecretaria === "Todas" || d.secretaria === fSecretaria) &&
-  (fModalidade === "Todas" || d.modalidade === fModalidade)
+  (fModalidade === "Todas" || d.modalidade === fModalidade) &&
+  (fAlteracao === "Todos" ||
+   (fAlteracao === "Alterados" && d._diff === "alterado") ||
+   (fAlteracao === "Novos" && d._diff === "novo") ||
+   (fAlteracao === "Sem alteração" && d._diff == null))
 );
 
 const bySituacao = SITUACAO_ORDER
@@ -954,6 +996,78 @@ if (inicioPrazoVencido > 0 || inicioProx10 > 0) {
 
 </div>
 
+<div class="card card--alteracoes">
+
+```js
+const alteracaoRows = [];
+const prevByKey = new Map(previousRawData.map(d => [rowKey(d), d]));
+
+for (const d of data) {
+  if (!d._diff) continue;
+  const key = rowKey(d);
+  if (d._diff === "novo") {
+    alteracaoRows.push({
+      num_convenio: d.num_convenio || "—",
+      cod_tci: d.cod_tci || "—",
+      tipo: "Novo",
+      campo: "—",
+      anterior: "—",
+      atual: "—",
+    });
+    continue;
+  }
+  const prev = prevByKey.get(key);
+  if (!prev) continue;
+  for (const f of d._diffCampos) {
+    const label = diffFieldLabels[f] || f;
+    const vPrev = prev[f];
+    const vCurr = d[f];
+    const fmt = (v) => {
+      if (v == null || v === "") return "(vazio)";
+      if (v instanceof Date) return formatDate(v);
+      if (typeof v === "number") return v.toLocaleString("pt-BR");
+      return String(v);
+    };
+    alteracaoRows.push({
+      num_convenio: d.num_convenio || "—",
+      cod_tci: d.cod_tci || "—",
+      tipo: "Alterado",
+      campo: label,
+      anterior: fmt(vPrev),
+      atual: fmt(vCurr),
+    });
+  }
+}
+```
+
+```js
+if (alteracaoRows.length > 0) {
+  const heading = document.createElement("div");
+  heading.innerHTML = `<h2>Alterações desde ${baseDiffLatest?.snapshot_anterior ? formatDate(baseDiffLatest.snapshot_anterior) : "snapshot anterior"}</h2>
+  <p>${alteracaoRows.length} alteração${alteracaoRows.length > 1 ? "ões" : ""} detectada${alteracaoRows.length > 1 ? "s" : ""} em ${data.filter(d => d._diff).length} empreendimento${data.filter(d => d._diff).length > 1 ? "s" : ""}</p>`;
+  display(heading);
+
+  display(Inputs.table(alteracaoRows, {
+    columns: ["num_convenio", "cod_tci", "tipo", "campo", "anterior", "atual"],
+    header: {
+      num_convenio: "Convênio",
+      cod_tci: "TCI",
+      tipo: "Tipo",
+      campo: "Campo",
+      anterior: "Valor Anterior",
+      atual: "Valor Atual",
+    },
+    rows: 15,
+    select: false,
+    multiple: false,
+  }));
+} else {
+  display(html`<h2>Alterações</h2><p>Nenhuma alteração detectada em relação ao snapshot anterior.</p>`);
+}
+```
+
+</div>
+
 <div class="table-shell">
 
 ## Base de Dados
@@ -969,13 +1083,14 @@ const tableData = data.filter(d =>
 
 const totalPages = Math.max(1, Math.ceil(tableData.length / PAGE_SIZE));
 const exportColumns = [
-  "num_convenio", "cod_tci", "secretaria", "fase", "modalidade",
+  "_diff", "num_convenio", "cod_tci", "secretaria", "fase", "modalidade",
   "situacao", "situacao_suspensiva", "dt_assinatura", "dt_vencimento_suspensiva",
   "dt_retirada_suspensiva", "dt_lae", "data_limite_licitacao_casa_civil", "status_regra_casa_civil", "prazo_pub_licitacao", "status_pub_licitacao",
   "dt_pub_licitacao", "prazo_homolog_licitacao", "status_homolog_licitacao", "dt_homolog_licitacao",
   "dt_vrpl", "dt_aio", "prazo_inicio_obra", "status_inicio_obra", "dt_inicio_obra", "vlr_repasse",
 ];
 const exportHeaders = {
+  _diff: "Alteração",
   num_convenio: "Convênio",
   cod_tci: "TCI",
   secretaria: "Secretaria",
@@ -1098,8 +1213,9 @@ function makeExportButton(rows, columns) {
       const exportRow = {};
       for (const col of columns) {
         let value = row[col] ?? "";
-        if (col === "vlr_repasse" && value !== "") value = Number(value) || 0;
-        if (dateColumns.has(col)) value = value ? formatDate(value) : "";
+        if (col === "_diff") { value = value || ""; }
+        else if (col === "vlr_repasse" && value !== "") value = Number(value) || 0;
+        else if (dateColumns.has(col)) value = value ? formatDate(value) : "";
         exportRow[exportHeaders[col] ?? col] = value;
       }
       return exportRow;
@@ -1220,11 +1336,32 @@ const dateCol = d => d ? formatDate(d) : "—";
 const tciLinkCol = d => d
   ? html`<a href=${`https://saci.cidades.gov.br/contratos/${d}`} target="_blank" rel="noopener noreferrer">${d}</a>`
   : "—";
+
+const diffFieldLabels = {
+  situacao: "Situação", situacao_suspensiva: "Sit. Suspensiva", status_suspensiva: "Status Suspensiva",
+  fase_atual: "Fase Atual", dt_retirada_suspensiva: "Ret. Suspensiva", dt_lae: "LAE",
+  dt_pub_licitacao: "Pub. Licitação", dt_homolog_licitacao: "Homolog.", dt_vrpl: "VRPL",
+  dt_aio: "AIO", dt_inicio_obra: "Início Obra", vlr_repasse: "Repasse",
+  status_pub_licitacao: "Status Pub.", status_homolog_licitacao: "Status Homolog.",
+  status_inicio_obra: "Status Início Obra", status_regra_casa_civil: "Regra Casa Civil",
+  urgencia_suspensiva: "Urgência Susp.",
+};
+
+function diffCol(value, i) {
+  if (!value) return "—";
+  const row = pageData[i];
+  const campos = (row?._diffCampos || []).map(f => diffFieldLabels[f] || f).join(", ");
+  const label = value === "novo" ? "Novo" : "Alterado";
+  const cls = value === "novo" ? "diff-pill--novo" : "diff-pill--alterado";
+  const el = html`<span class="diff-pill ${cls}">${label}</span>`;
+  if (campos) el.title = `Campos: ${campos}`;
+  return el;
+}
 display(Inputs.table(pageData, {
   columns: activeColumns,
   select: false,
   header: {
-    num_convenio: "Convênio", cod_tci: "TCI", secretaria: "Secretaria",
+    _diff: "Alteração", num_convenio: "Convênio", cod_tci: "TCI", secretaria: "Secretaria",
     fase: "Fase", modalidade: "Modalidade", situacao: "Situação Contrato",
     situacao_suspensiva: "Situação Suspensiva",
     dt_vencimento_suspensiva: "Venc. Suspensiva", dt_retirada_suspensiva: "Retirada Suspensiva",
@@ -1235,6 +1372,7 @@ display(Inputs.table(pageData, {
     dt_inicio_obra: "Início Obra", vlr_repasse: "Repasse (R$)",
   },
   format: {
+    _diff: diffCol,
     cod_tci: tciLinkCol,
     vlr_repasse: d => d.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
     dt_assinatura: dateCol, dt_lae: dateCol, data_limite_licitacao_casa_civil: dateCol, prazo_pub_licitacao: dateCol, dt_pub_licitacao: dateCol,

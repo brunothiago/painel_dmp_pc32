@@ -323,6 +323,27 @@
     opacity: 1;
 }
 
+/* ── Pílulas de diff na tabela ── */
+.diff-pill {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    white-space: nowrap;
+    cursor: default;
+}
+
+.diff-pill--alterado {
+    color: #92400e;
+    background: #fef3c7;
+}
+
+.diff-pill--novo {
+    color: #065f46;
+    background: #d1fae5;
+}
+
 .metric-detail {
     margin: 0.55rem 0 0;
     color: var(--theme-foreground-muted);
