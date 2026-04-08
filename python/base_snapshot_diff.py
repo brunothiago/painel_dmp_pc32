@@ -65,6 +65,7 @@ class DiffArtifacts:
     summary_md_path: Path | None
     latest_json_path: Path | None
     previous_csv_path: Path | None
+    first_csv_path: Path | None
 
 
 def _read_csv(path: Path) -> tuple[list[str], list[dict[str, str]]]:
@@ -125,6 +126,13 @@ def _latest_previous_snapshot(history_dir: Path, current_snapshot: Path) -> Path
     if not snapshots:
         return None
     return snapshots[-1]
+
+
+def _oldest_snapshot(history_dir: Path) -> Path | None:
+    snapshots = sorted(history_dir.glob("base_pc_32_*.csv"))
+    if not snapshots:
+        return None
+    return snapshots[0]
 
 
 def _summarize_status_changes(detail_rows: list[dict[str, str]]) -> dict[str, int]:
@@ -234,6 +242,88 @@ def _build_detail_rows(
     return detail_rows, stats
 
 
+def _build_cumulative_diff(history_dir: Path) -> list[dict[str, str]]:
+    """Compara cada par consecutivo de snapshots e retorna todas as mudanças com data."""
+    snapshots = sorted(history_dir.glob("base_pc_32_*.csv"))
+    if len(snapshots) < 2:
+        return []
+
+    all_rows: list[dict[str, str]] = []
+
+    for i in range(1, len(snapshots)):
+        prev_path = snapshots[i - 1]
+        curr_path = snapshots[i]
+        snapshot_date = curr_path.stem.replace("base_pc_32_", "")
+
+        header, curr_raw = _read_csv(curr_path)
+        _, prev_raw = _read_csv(prev_path)
+
+        curr_indexed = _index_rows(curr_raw, f"Cumul. atual ({curr_path.name})")
+        prev_indexed = _index_rows(prev_raw, f"Cumul. anterior ({prev_path.name})")
+
+        prev_keys = set(prev_indexed)
+        curr_keys = set(curr_indexed)
+
+        for key in sorted(curr_keys - prev_keys):
+            row = curr_indexed[key]
+            all_rows.append({
+                "data": snapshot_date,
+                "tipo": "Novo",
+                "num_convenio": _normalize(row.get("num_convenio")),
+                "cod_tci": _normalize(row.get("cod_tci")),
+                "uf": _normalize(row.get("txt_uf")),
+                "secretaria": _normalize(row.get("txt_sigla_secretaria")),
+                "campo": "",
+                "valor_anterior": "",
+                "valor_atual": "",
+            })
+
+        for key in sorted(prev_keys - curr_keys):
+            row = prev_indexed[key]
+            all_rows.append({
+                "data": snapshot_date,
+                "tipo": "Removido",
+                "num_convenio": _normalize(row.get("num_convenio")),
+                "cod_tci": _normalize(row.get("cod_tci")),
+                "uf": _normalize(row.get("txt_uf")),
+                "secretaria": _normalize(row.get("txt_sigla_secretaria")),
+                "campo": "",
+                "valor_anterior": "",
+                "valor_atual": "",
+            })
+
+        comparable = [f for f in header if f not in (KEY_FIELD, FALLBACK_KEY_FIELD)]
+        for key in sorted(prev_keys & curr_keys):
+            prev = prev_indexed[key]
+            curr = curr_indexed[key]
+            changed = [f for f in comparable if _normalize(prev.get(f)) != _normalize(curr.get(f))]
+            if not changed:
+                continue
+            for field in changed:
+                all_rows.append({
+                    "data": snapshot_date,
+                    "tipo": "Alterado",
+                    "num_convenio": _normalize(curr.get("num_convenio")) or key,
+                    "cod_tci": _normalize(curr.get("cod_tci")) or _normalize(prev.get("cod_tci")),
+                    "uf": _normalize(curr.get("txt_uf")),
+                    "secretaria": _normalize(curr.get("txt_sigla_secretaria")),
+                    "campo": field,
+                    "valor_anterior": _normalize(prev.get(field)),
+                    "valor_atual": _normalize(curr.get(field)),
+                })
+
+    return all_rows
+
+
+def _write_cumulative_csv(path: Path, rows: list[dict[str, str]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fieldnames = ["data", "tipo", "num_convenio", "cod_tci", "uf", "secretaria", "campo", "valor_anterior", "valor_atual"]
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, delimiter=";", quoting=csv.QUOTE_ALL)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
 def _write_detail_csv(path: Path, rows: list[dict[str, str]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
@@ -307,6 +397,7 @@ def _write_latest_json(
     path: Path,
     snapshot_date: date,
     previous_snapshot: Path | None,
+    first_snapshot: Path | None,
     current_total: int,
     previous_total: int | None,
     stats: dict[str, int] | None,
@@ -316,6 +407,7 @@ def _write_latest_json(
     payload = {
         "snapshot_atual": snapshot_date.isoformat(),
         "snapshot_anterior": None if previous_snapshot is None else previous_snapshot.stem.replace("base_pc_32_", ""),
+        "snapshot_primeiro": None if first_snapshot is None else first_snapshot.stem.replace("base_pc_32_", ""),
         "total_atual": current_total,
         "total_anterior": previous_total,
         "delta_total": None if previous_total is None else current_total - previous_total,
@@ -336,6 +428,7 @@ def generate_daily_snapshot_diff(
     diff_dir: str | Path,
     latest_json_path: str | Path | None = None,
     previous_csv_path: str | Path | None = None,
+    first_csv_path: str | Path | None = None,
     snapshot_date: date | None = None,
 ) -> DiffArtifacts:
     snapshot_date = snapshot_date or date.today()
@@ -347,9 +440,16 @@ def generate_daily_snapshot_diff(
     previous_snapshot = _latest_previous_snapshot(history_dir, snapshot_path)
     latest_json = Path(latest_json_path) if latest_json_path else None
     previous_csv = Path(previous_csv_path) if previous_csv_path else None
+    first_csv = Path(first_csv_path) if first_csv_path else None
 
     if previous_csv is not None:
         _write_previous_csv(previous_csv, previous_snapshot, snapshot_path)
+
+    if first_csv is not None:
+        first_snapshot = _oldest_snapshot(history_dir)
+        if first_snapshot is not None:
+            first_csv.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(first_snapshot, first_csv)
 
     if previous_snapshot is None:
         if latest_json is not None:
@@ -357,6 +457,7 @@ def generate_daily_snapshot_diff(
                 latest_json,
                 snapshot_date=snapshot_date,
                 previous_snapshot=None,
+                first_snapshot=_oldest_snapshot(history_dir),
                 current_total=len(_read_csv(snapshot_path)[1]),
                 previous_total=None,
                 stats=None,
@@ -368,6 +469,7 @@ def generate_daily_snapshot_diff(
             summary_md_path=None,
             latest_json_path=latest_json,
             previous_csv_path=previous_csv,
+            first_csv_path=first_csv,
         )
 
     header, current_rows_raw = _read_csv(snapshot_path)
@@ -397,6 +499,7 @@ def generate_daily_snapshot_diff(
             latest_json,
             snapshot_date=snapshot_date,
             previous_snapshot=previous_snapshot,
+            first_snapshot=_oldest_snapshot(history_dir),
             current_total=len(current_rows_raw),
             previous_total=len(previous_rows_raw),
             stats=stats,
@@ -409,4 +512,5 @@ def generate_daily_snapshot_diff(
         summary_md_path=summary_md_path,
         latest_json_path=latest_json,
         previous_csv_path=previous_csv,
+        first_csv_path=first_csv,
     )

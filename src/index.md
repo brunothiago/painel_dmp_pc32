@@ -259,18 +259,11 @@ const fModalidade = view(Inputs.select(
 ```js
 const anos = ["Todos", ...[...new Set(
   rawData
-    .map(d => d.dt_assinatura ? d.dt_assinatura.getUTCFullYear() : null)
+    .map(d => d.dt_assinatura ? String(d.dt_assinatura.getUTCFullYear()) : null)
     .filter(Boolean)
 )].sort()];
 
 const fAno = view(Inputs.select(anos, { label: "Ano de seleção", value: "Todos" }));
-```
-
-```js
-const fAlteracao = view(Inputs.select(
-  ["Todos", "Alterados", "Novos", "Sem alteração"],
-  { label: "Alterações", value: "Todos" }
-));
 ```
 
 </div>
@@ -280,11 +273,7 @@ const fAlteracao = view(Inputs.select(
 const baseData = fConvenio.filter(d =>
   (fSecretaria === "Todas" || d.secretaria === fSecretaria) &&
   (fModalidade === "Todas" || d.modalidade === fModalidade) &&
-  (fAno === "Todos" || (d.dt_assinatura && d.dt_assinatura.getUTCFullYear() === fAno)) &&
-  (fAlteracao === "Todos" ||
-   (fAlteracao === "Alterados" && d._diff === "alterado") ||
-   (fAlteracao === "Novos" && d._diff === "novo") ||
-   (fAlteracao === "Sem alteração" && d._diff == null))
+  (fAno === "Todos" || (d.dt_assinatura && String(d.dt_assinatura.getUTCFullYear()) === fAno))
 );
 
 const bySituacao = SITUACAO_ORDER

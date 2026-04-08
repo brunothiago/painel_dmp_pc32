@@ -11,7 +11,7 @@ import {metricGrid} from "./components/cards.js";
 import {formatNumber, formatDate} from "./lib/formatters.js";
 
 const rawText = await FileAttachment("data/base_pc_32.csv").text();
-const previousRawText = await FileAttachment("data/base_pc_32_previous.csv").text();
+const previousRawText = await FileAttachment("data/base_pc_32_first.csv").text();
 const baseDiffLatest = await FileAttachment("data/base_diff_latest.json").json();
 const dsv = dsvFormat(";");
 
@@ -150,9 +150,9 @@ for (const d of previousRawData) {
   }
 }
 
-const snapshotAnteriorLabel = baseDiffLatest?.snapshot_anterior
-  ? formatDate(baseDiffLatest.snapshot_anterior)
-  : "snapshot anterior";
+const snapshotPrimeiroLabel = baseDiffLatest?.snapshot_primeiro
+  ? formatDate(baseDiffLatest.snapshot_primeiro)
+  : "primeiro registro";
 
 const updatedAt = new Intl.DateTimeFormat("pt-BR", {
   day: "2-digit", month: "2-digit", year: "numeric",
@@ -164,7 +164,7 @@ const pageTitleBar = document.createElement("div");
 pageTitleBar.className = "page-titlebar";
 pageTitleBar.innerHTML = `
   <div class="page-titlebar__heading">
-    <h1>Alteracoes desde ${snapshotAnteriorLabel}</h1>
+    <h1>Alteracoes desde ${snapshotPrimeiroLabel}</h1>
   </div>
   <div class="page-titlebar__meta" aria-label="Data de atualizacao">
     <span class="page-titlebar__meta-label">Atualizado em</span>

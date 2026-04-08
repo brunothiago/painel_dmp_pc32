@@ -201,10 +201,10 @@
 
 .filters-bar {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem 1rem;
+    flex-wrap: nowrap;
+    gap: 0.75rem;
     align-items: flex-end;
-    padding: 1rem 1.1rem;
+    padding: 0.75rem 1rem;
     background: rgba(255,255,255,0.96);
     border: 1px solid rgba(215,210,199,0.9);
     border-radius: 18px;
@@ -212,20 +212,23 @@
     margin-bottom: 1.25rem;
 }
 
+@media (max-width: 768px) {
+    .filters-bar {
+        flex-wrap: wrap;
+    }
+}
+
 /* Cada célula Observable dentro da barra não deve forçar largura 100% */
 .filters-bar > .observablehq--block {
     width: auto;
     margin: 0;
+    min-width: 0;
+    flex: 1 1 0;
 }
 
 /* Busca (primeiro bloco) ocupa mais espaço */
 .filters-bar > .observablehq--block:first-child {
-    flex: 2 1 260px;
-}
-
-/* Selects ocupam espaço menor */
-.filters-bar > .observablehq--block:not(:first-child) {
-    flex: 1 1 160px;
+    flex: 2 1 0;
 }
 
 .filters-bar label {
