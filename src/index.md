@@ -230,11 +230,13 @@ display(pageTitleBar);
 <div class="filters-bar">
 
 ```js
-const fConvenio = view(Inputs.search(rawData, {
+const fConvenioInput = Inputs.search(rawData, {
   placeholder: "Buscar por num. convênio ou TCI…",
   columns: ["num_convenio", "cod_tci"],
   label: "Convênio / TCI",
-}));
+});
+
+const fConvenio = view(fConvenioInput);
 ```
 
 ```js
@@ -420,21 +422,50 @@ function makeCascadeFilters(data) {
         config.selectedLabel
       );
       picker.addEventListener("input", () => {
-        state = sanitizeCascadeState(data, {...state, [config.key]: Array.isArray(picker.value) ? picker.value : []});
-        render();
-        emit();
+        wrap.setState({...state, [config.key]: Array.isArray(picker.value) ? picker.value : []});
       });
       slot.append(picker);
       wrap.append(slot);
     });
   }
 
+  wrap.setState = (nextState) => {
+    state = sanitizeCascadeState(data, {
+      secretaria: Array.isArray(nextState.secretaria) ? nextState.secretaria : [],
+      modalidade: Array.isArray(nextState.modalidade) ? nextState.modalidade : [],
+      ano: Array.isArray(nextState.ano) ? nextState.ano : []
+    });
+    render();
+    emit();
+  };
+
+  wrap.reset = () => {
+    wrap.setState({secretaria: [], modalidade: [], ano: []});
+  };
+
   render();
   emit();
   return wrap;
 }
 
-const filtros = view(makeCascadeFilters(rawData));
+const filtrosInput = makeCascadeFilters(rawData);
+const filtros = view(filtrosInput);
+```
+
+```js
+const clearFiltersButton = html`<button type="button" class="filters-reset">Limpar filtros</button>`;
+
+clearFiltersButton.addEventListener("click", () => {
+  const searchInput = fConvenioInput.querySelector("input[type='search']");
+  if (searchInput) {
+    searchInput.value = "";
+    searchInput.dispatchEvent(new Event("input", {bubbles: true}));
+    searchInput.dispatchEvent(new Event("change", {bubbles: true}));
+  }
+  filtrosInput.reset();
+});
+
+display(clearFiltersButton);
 ```
 
 </div>
@@ -454,6 +485,34 @@ function matchesAnoFilter(d) {
 
 function matchesSecretariaFilter(d) {
   return secretariaSelecionada.length === 0 || secretariaSelecionada.includes(d.secretaria);
+}
+
+function summarizeFilter(label, values, pluralLabel = "selecionadas") {
+  if (values.length === 0) return null;
+  if (values.length <= 2) return `${label}: ${values.join(", ")}`;
+  return `${label}: ${values.length} ${pluralLabel}`;
+}
+
+const filtrosAtivos = [
+  secretariaSelecionada.length > 0 ? {key: "secretaria", text: summarizeFilter("Secretaria", secretariaSelecionada)} : null,
+  modalidadeSelecionada.length > 0 ? {key: "modalidade", text: summarizeFilter("Modalidade", modalidadeSelecionada)} : null,
+  anoSelecionado.length > 0 ? {key: "ano", text: summarizeFilter("Ano", anoSelecionado, "anos")} : null
+].filter(Boolean);
+
+if (filtrosAtivos.length > 0) {
+  const summary = html`<div class="filters-summary">
+    <span class="filters-summary__count">${filtrosAtivos.length} filtro${filtrosAtivos.length === 1 ? "" : "s"} ativo${filtrosAtivos.length === 1 ? "" : "s"}</span>
+  </div>`;
+
+  filtrosAtivos.forEach((item) => {
+    const chip = html`<button type="button" class="filters-summary__chip">${item.text}<span aria-hidden="true">×</span></button>`;
+    chip.addEventListener("click", () => {
+      filtrosInput.setState({...filtrosInput.value, [item.key]: []});
+    });
+    summary.append(chip);
+  });
+
+  display(summary);
 }
 
 // ── baseData: filtros de topo
