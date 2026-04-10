@@ -236,6 +236,31 @@ const fConvenioInput = Inputs.search(rawData, {
   label: "Convênio / TCI",
 });
 
+function localizeSearchResults(input) {
+  const output = input.querySelector("output");
+  const sync = () => {
+    if (output) {
+      const match = output.textContent.match(/^([\d.,]+)\s+results?$/i);
+      if (match) {
+        const count = match[1];
+        output.textContent = `${count} ${count === "1" ? "resultado" : "resultados"}`;
+      }
+    }
+
+    input.querySelectorAll("td").forEach((cell) => {
+      if (cell.textContent?.trim() === "No results.") {
+        cell.textContent = "Nenhum resultado.";
+      }
+    });
+  };
+
+  sync();
+  input.addEventListener("input", sync);
+  new MutationObserver(sync).observe(input, {childList: true, characterData: true, subtree: true});
+}
+
+localizeSearchResults(fConvenioInput);
+
 const fConvenio = view(fConvenioInput);
 ```
 
