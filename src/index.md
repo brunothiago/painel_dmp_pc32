@@ -344,49 +344,116 @@ function makeMultiPicker(labelText, options, selectedValues = [], allLabel = "To
   return wrap;
 }
 
-const fSecretaria = view(makeMultiPicker("Secretaria", secretarias, [], "Todas", "selecionadas"));
-```
-
-```js
-const secretariaSelecionada = Array.isArray(fSecretaria) ? fSecretaria : [];
-
-function matchesSecretariaFilter(d) {
-  return secretariaSelecionada.length === 0 || secretariaSelecionada.includes(d.secretaria);
+function getAno(d) {
+  return d.dt_assinatura ? String(d.dt_assinatura.getUTCFullYear()) : null;
 }
 
-// Modalidade reage à secretaria selecionada
-const modalidadesDaSecretaria = [...new Set(
-  rawData
-    .filter(matchesSecretariaFilter)
-    .map(d => d.modalidade)
-    .filter(Boolean)
-)].sort();
+function filterBySelection(value, selectedValues) {
+  return selectedValues.length === 0 || selectedValues.includes(value);
+}
 
-const fModalidade = view(makeMultiPicker("Modalidade", modalidadesDaSecretaria, [], "Todas", "selecionadas"));
-```
+function computeCascadeOptions(data, state) {
+  const secretaria = [...new Set(
+    data
+      .filter(d => filterBySelection(d.modalidade, state.modalidade))
+      .filter(d => filterBySelection(getAno(d), state.ano))
+      .map(d => d.secretaria)
+      .filter(Boolean)
+  )].sort();
 
-```js
-const anos = [...new Set(
-  rawData
-    .map(d => d.dt_assinatura ? String(d.dt_assinatura.getUTCFullYear()) : null)
-    .filter(Boolean)
-)].sort();
+  const modalidade = [...new Set(
+    data
+      .filter(d => filterBySelection(d.secretaria, state.secretaria))
+      .filter(d => filterBySelection(getAno(d), state.ano))
+      .map(d => d.modalidade)
+      .filter(Boolean)
+  )].sort();
 
-const fAno = view(makeMultiPicker("Ano de seleção", anos, [], "Todos", "anos"));
+  const ano = [...new Set(
+    data
+      .filter(d => filterBySelection(d.secretaria, state.secretaria))
+      .filter(d => filterBySelection(d.modalidade, state.modalidade))
+      .map(getAno)
+      .filter(Boolean)
+  )].sort();
+
+  return {secretaria, modalidade, ano};
+}
+
+function sanitizeCascadeState(data, state) {
+  const options = computeCascadeOptions(data, state);
+  return {
+    secretaria: state.secretaria.filter(value => options.secretaria.includes(value)),
+    modalidade: state.modalidade.filter(value => options.modalidade.includes(value)),
+    ano: state.ano.filter(value => options.ano.includes(value))
+  };
+}
+
+function makeCascadeFilters(data) {
+  let state = {secretaria: [], modalidade: [], ano: []};
+  const wrap = Object.assign(document.createElement("div"), {value: state});
+  wrap.className = "filters-cascade";
+
+  function emit() {
+    wrap.value = state;
+    wrap.dispatchEvent(new Event("input", {bubbles: true}));
+  }
+
+  function render() {
+    const options = computeCascadeOptions(data, state);
+    wrap.replaceChildren();
+
+    const configs = [
+      {key: "secretaria", label: "Secretaria", values: options.secretaria, allLabel: "Todas", selectedLabel: "selecionadas"},
+      {key: "modalidade", label: "Modalidade", values: options.modalidade, allLabel: "Todas", selectedLabel: "selecionadas"},
+      {key: "ano", label: "Ano de seleção", values: options.ano, allLabel: "Todos", selectedLabel: "anos"}
+    ];
+
+    configs.forEach((config) => {
+      const slot = document.createElement("div");
+      slot.className = "filters-cascade__item";
+      const picker = makeMultiPicker(
+        config.label,
+        config.values,
+        state[config.key],
+        config.allLabel,
+        config.selectedLabel
+      );
+      picker.addEventListener("input", () => {
+        state = sanitizeCascadeState(data, {...state, [config.key]: Array.isArray(picker.value) ? picker.value : []});
+        render();
+        emit();
+      });
+      slot.append(picker);
+      wrap.append(slot);
+    });
+  }
+
+  render();
+  emit();
+  return wrap;
+}
+
+const filtros = view(makeCascadeFilters(rawData));
 ```
 
 </div>
 
 ```js
-const modalidadeSelecionada = Array.isArray(fModalidade) ? fModalidade : [];
-const anoSelecionado = Array.isArray(fAno) ? fAno : [];
+const secretariaSelecionada = Array.isArray(filtros?.secretaria) ? filtros.secretaria : [];
+const modalidadeSelecionada = Array.isArray(filtros?.modalidade) ? filtros.modalidade : [];
+const anoSelecionado = Array.isArray(filtros?.ano) ? filtros.ano : [];
 
 function matchesModalidadeFilter(d) {
   return modalidadeSelecionada.length === 0 || modalidadeSelecionada.includes(d.modalidade);
 }
 
 function matchesAnoFilter(d) {
-  return anoSelecionado.length === 0 || (d.dt_assinatura && anoSelecionado.includes(String(d.dt_assinatura.getUTCFullYear())));
+  return anoSelecionado.length === 0 || (getAno(d) && anoSelecionado.includes(getAno(d)));
+}
+
+function matchesSecretariaFilter(d) {
+  return secretariaSelecionada.length === 0 || secretariaSelecionada.includes(d.secretaria);
 }
 
 // ── baseData: filtros de topo
