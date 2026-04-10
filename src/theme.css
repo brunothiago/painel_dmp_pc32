@@ -212,9 +212,23 @@
     margin-bottom: 1.25rem;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1100px) {
     .filters-bar {
         flex-wrap: wrap;
+        align-items: stretch;
+    }
+
+    .filters-bar > .observablehq--block,
+    .filters-bar > .observablehq--block:first-child,
+    .filters-bar > .observablehq--block:nth-child(2),
+    .filters-bar > .observablehq--block:last-child {
+        flex: 1 1 100%;
+        width: 100%;
+    }
+
+    .filters-bar > .observablehq--block:last-child {
+        display: flex;
+        justify-content: flex-end;
     }
 }
 
@@ -327,6 +341,11 @@
 @media (max-width: 1100px) {
     .filters-cascade {
         grid-template-columns: 1fr;
+    }
+
+    .filters-reset {
+        width: 100%;
+        justify-content: center;
     }
 }
 
