@@ -839,6 +839,10 @@ const previousPublicadas = previousLicitacaoBase.filter(d => d.dt_pub_licitacao)
 const previousHomologacaoPendente = previousPublicadas.filter(d => !d.dt_homolog_licitacao);
 const previousHomologacaoVencida = previousHomologacaoPendente.filter(d => d.status_homolog_licitacao === "Vencida").length;
 const previousHomologacaoProx30 = previousHomologacaoPendente.filter(d => d.status_homolog_licitacao === "Próximos 30 dias").length;
+const licitacaoSelecionada = licitacaoBase.filter(d => matchesLicitacaoSelection(d, selectedLicitacao));
+const previousLicitacaoSelecionada = previousLicitacaoBase.filter(d => matchesLicitacaoSelection(d, selectedLicitacao));
+const valorLicitacaoSelecionada = licitacaoSelecionada.reduce((sum, d) => sum + d.vlr_repasse, 0);
+const previousValorLicitacaoSelecionada = previousLicitacaoSelecionada.reduce((sum, d) => sum + d.vlr_repasse, 0);
 const cumprimentoCasaCivil = [
   { status: "Cumpriu", qtd: licitacaoBase.filter(d => d.status_regra_casa_civil === "Cumpriu").length, color: LICITACAO_CORES["Cumpriu"] },
   { status: "Não cumpriu", qtd: licitacaoBase.filter(d => d.status_regra_casa_civil === "Não cumpriu").length, color: LICITACAO_CORES["Não cumpriu"] },
@@ -847,6 +851,13 @@ const cumprimentoCasaCivil = [
 
 display(metricGrid([
   { label: "Com retirada de suspensiva", value: formatNumber(licitacaoBase.length), delta: buildMetricDelta(licitacaoBase.length, previousLicitacaoBase.length), tone: "default" },
+  {
+    label: "Valor dos contratos",
+    value: formatCurrencyCompact(valorLicitacaoSelecionada),
+    detail: `${formatNumber(licitacaoSelecionada.length)} contrato${licitacaoSelecionada.length === 1 ? "" : "s"} no recorte atual da licitação`,
+    delta: buildMetricDelta(valorLicitacaoSelecionada, previousValorLicitacaoSelecionada, formatCurrencyDelta),
+    tone: "blue",
+  },
   { label: "Aguardando publicação", value: formatNumber(aguardandoPublicacao.length), detail: formatPercent(licitacaoBase.length > 0 ? aguardandoPublicacao.length / licitacaoBase.length : 0) + " com retirada de suspensiva", delta: buildMetricDelta(aguardandoPublicacao.length, previousAguardandoPublicacao.length), tone: "gold" },
   { label: "Publicação vencida", value: formatNumber(publicacaoVencida), detail: "prazo de 120 dias após retirada da suspensiva", delta: buildMetricDelta(publicacaoVencida, previousPublicacaoVencida), tone: "red" },
   { label: "Publicação nos próximos 30 dias", value: formatNumber(publicacaoProx30), delta: buildMetricDelta(publicacaoProx30, previousPublicacaoProx30), tone: "gold" },
@@ -940,15 +951,6 @@ const inicioObraChart = [
   { status: "Próximos 10 dias úteis", qtd: inicioProx10, color: INICIO_OBRA_CORES["Próximos 10 dias úteis"] },
   { status: "Prazo vencido", qtd: inicioPrazoVencido, color: INICIO_OBRA_CORES["Prazo vencido"] },
 ].filter(d => d.qtd > 0);
-
-display(metricGrid([
-  { label: "Com AIO", value: formatNumber(inicioObraBase.length), delta: buildMetricDelta(inicioObraBase.length, previousInicioObraBase.length), tone: "default" },
-  { label: "Iniciada no prazo", value: formatNumber(iniciadaNoPrazo), delta: buildMetricDelta(iniciadaNoPrazo, previousIniciadaNoPrazo), tone: "green" },
-  { label: "Iniciada em atraso", value: formatNumber(iniciadaEmAtraso), delta: buildMetricDelta(iniciadaEmAtraso, previousIniciadaEmAtraso), tone: "red" },
-  { label: "Prazo vencido", value: formatNumber(inicioPrazoVencido), delta: buildMetricDelta(inicioPrazoVencido, previousInicioPrazoVencido), tone: "red" },
-  { label: "Próximos 10 dias úteis", value: formatNumber(inicioProx10), delta: buildMetricDelta(inicioProx10, previousInicioProx10), tone: "gold" },
-  { label: "No prazo", value: formatNumber(inicioNoPrazo), delta: buildMetricDelta(inicioNoPrazo, previousInicioNoPrazo), tone: "blue" },
-]));
 ```
 
 ```js
@@ -980,6 +982,29 @@ const selectedInicioObra = view(makeClickableChart(
   }),
   inicioObraChart, "status"
 ));
+```
+
+```js
+const inicioObraSelecionada = inicioObraBase.filter(d => matchesInicioObraSelection(d, selectedInicioObra));
+const previousInicioObraSelecionada = previousInicioObraBase.filter(d => matchesInicioObraSelection(d, selectedInicioObra));
+const valorInicioObraSelecionada = inicioObraSelecionada.reduce((sum, d) => sum + d.vlr_repasse, 0);
+const previousValorInicioObraSelecionada = previousInicioObraSelecionada.reduce((sum, d) => sum + d.vlr_repasse, 0);
+
+display(metricGrid([
+  { label: "Com AIO", value: formatNumber(inicioObraBase.length), delta: buildMetricDelta(inicioObraBase.length, previousInicioObraBase.length), tone: "default" },
+  {
+    label: "Valor dos contratos",
+    value: formatCurrencyCompact(valorInicioObraSelecionada),
+    detail: `${formatNumber(inicioObraSelecionada.length)} contrato${inicioObraSelecionada.length === 1 ? "" : "s"} no recorte atual de início da obra`,
+    delta: buildMetricDelta(valorInicioObraSelecionada, previousValorInicioObraSelecionada, formatCurrencyDelta),
+    tone: "blue",
+  },
+  { label: "Iniciada no prazo", value: formatNumber(iniciadaNoPrazo), delta: buildMetricDelta(iniciadaNoPrazo, previousIniciadaNoPrazo), tone: "green" },
+  { label: "Iniciada em atraso", value: formatNumber(iniciadaEmAtraso), delta: buildMetricDelta(iniciadaEmAtraso, previousIniciadaEmAtraso), tone: "red" },
+  { label: "Prazo vencido", value: formatNumber(inicioPrazoVencido), delta: buildMetricDelta(inicioPrazoVencido, previousInicioPrazoVencido), tone: "red" },
+  { label: "Próximos 10 dias úteis", value: formatNumber(inicioProx10), delta: buildMetricDelta(inicioProx10, previousInicioProx10), tone: "gold" },
+  { label: "No prazo", value: formatNumber(inicioNoPrazo), delta: buildMetricDelta(inicioNoPrazo, previousInicioNoPrazo), tone: "blue" },
+]));
 ```
 
 ```js
