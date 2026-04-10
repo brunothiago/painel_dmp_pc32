@@ -238,48 +238,162 @@ const fConvenio = view(Inputs.search(rawData, {
 ```
 
 ```js
-const fSecretaria = view(Inputs.select(
-  ["Todas", ...secretarias],
-  { label: "Secretaria", value: "Todas" }
-));
+function makeMultiPicker(labelText, options, selectedValues = [], allLabel = "Todas", selectedLabel = "selecionadas") {
+  const selected = new Set(selectedValues.filter(value => options.includes(value)));
+  const wrap = Object.assign(document.createElement("div"), { value: [...selected] });
+  wrap.className = "multi-picker";
+
+  const label = document.createElement("label");
+  label.className = "multi-picker__label";
+  label.textContent = labelText;
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "multi-picker__toggle";
+
+  const panel = document.createElement("div");
+  panel.className = "multi-picker__panel";
+  panel.hidden = true;
+
+  const actions = document.createElement("div");
+  actions.className = "multi-picker__actions";
+
+  const selectAll = document.createElement("button");
+  selectAll.type = "button";
+  selectAll.className = "multi-picker__action-btn";
+  selectAll.textContent = "Selecionar todas";
+
+  const clearAll = document.createElement("button");
+  clearAll.type = "button";
+  clearAll.className = "multi-picker__action-btn";
+  clearAll.textContent = "Limpar";
+
+  const grid = document.createElement("div");
+  grid.className = "multi-picker__grid";
+
+  const updateToggleText = () => {
+    if (selected.size === 0) toggle.textContent = allLabel;
+    else if (selected.size === 1) toggle.textContent = [...selected][0];
+    else toggle.textContent = `${selected.size} ${selectedLabel}`;
+  };
+
+  const emit = () => {
+    wrap.value = options.filter(option => selected.has(option));
+    updateToggleText();
+    wrap.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+
+  const chips = options.map(option => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "multi-picker__chip";
+    chip.textContent = option;
+    if (selected.has(option)) chip.classList.add("is-active");
+    chip.addEventListener("click", () => {
+      if (selected.has(option)) {
+        selected.delete(option);
+        chip.classList.remove("is-active");
+      } else {
+        selected.add(option);
+        chip.classList.add("is-active");
+      }
+      emit();
+    });
+    return chip;
+  });
+
+  selectAll.addEventListener("click", () => {
+    options.forEach(option => selected.add(option));
+    chips.forEach(chip => chip.classList.add("is-active"));
+    emit();
+  });
+
+  clearAll.addEventListener("click", () => {
+    selected.clear();
+    chips.forEach(chip => chip.classList.remove("is-active"));
+    emit();
+  });
+
+  const closePanel = () => {
+    panel.hidden = true;
+    toggle.classList.remove("is-open");
+    toggle.setAttribute("aria-expanded", "false");
+  };
+
+  toggle.addEventListener("click", () => {
+    const willOpen = panel.hidden;
+    panel.hidden = !panel.hidden;
+    toggle.classList.toggle("is-open", willOpen);
+    toggle.setAttribute("aria-expanded", willOpen ? "true" : "false");
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!wrap.contains(event.target)) closePanel();
+  });
+
+  actions.append(selectAll, clearAll);
+  grid.append(...chips);
+  panel.append(actions, grid);
+  label.append(toggle, panel);
+  wrap.append(label);
+
+  toggle.setAttribute("aria-haspopup", "dialog");
+  toggle.setAttribute("aria-expanded", "false");
+  updateToggleText();
+  wrap.value = options.filter(option => selected.has(option));
+  return wrap;
+}
+
+const fSecretaria = view(makeMultiPicker("Secretaria", secretarias, [], "Todas", "selecionadas"));
 ```
 
 ```js
+const secretariaSelecionada = Array.isArray(fSecretaria) ? fSecretaria : [];
+
+function matchesSecretariaFilter(d) {
+  return secretariaSelecionada.length === 0 || secretariaSelecionada.includes(d.secretaria);
+}
+
 // Modalidade reage à secretaria selecionada
-const modalidadesDaSecretaria = [
-  "Todas",
-  ...[...new Set(
-    rawData
-      .filter(d => fSecretaria === "Todas" || d.secretaria === fSecretaria)
-      .map(d => d.modalidade)
-      .filter(Boolean)
-  )].sort()
-];
+const modalidadesDaSecretaria = [...new Set(
+  rawData
+    .filter(matchesSecretariaFilter)
+    .map(d => d.modalidade)
+    .filter(Boolean)
+)].sort();
 
-const fModalidade = view(Inputs.select(
-  modalidadesDaSecretaria,
-  { label: "Modalidade", value: "Todas" }
-));
+const fModalidade = view(makeMultiPicker("Modalidade", modalidadesDaSecretaria, [], "Todas", "selecionadas"));
 ```
 
 ```js
-const anos = ["Todos", ...[...new Set(
+const anos = [...new Set(
   rawData
     .map(d => d.dt_assinatura ? String(d.dt_assinatura.getUTCFullYear()) : null)
     .filter(Boolean)
-)].sort()];
+)].sort();
 
-const fAno = view(Inputs.select(anos, { label: "Ano de seleção", value: "Todos" }));
+const fAno = view(makeMultiPicker("Ano de seleção", anos, [], "Todos", "anos"));
 ```
 
 </div>
 
 ```js
+const modalidadeSelecionada = Array.isArray(fModalidade) ? fModalidade : [];
+const anoSelecionado = Array.isArray(fAno) ? fAno : [];
+
+function matchesModalidadeFilter(d) {
+  return modalidadeSelecionada.length === 0 || modalidadeSelecionada.includes(d.modalidade);
+}
+
+function matchesAnoFilter(d) {
+  return anoSelecionado.length === 0 || (d.dt_assinatura && anoSelecionado.includes(String(d.dt_assinatura.getUTCFullYear())));
+}
+
 // ── baseData: filtros de topo
 const baseData = fConvenio.filter(d =>
-  (fSecretaria === "Todas" || d.secretaria === fSecretaria) &&
-  (fModalidade === "Todas" || d.modalidade === fModalidade) &&
-  (fAno === "Todos" || (d.dt_assinatura && String(d.dt_assinatura.getUTCFullYear()) === fAno))
+  matchesSecretariaFilter(d) &&
+  matchesModalidadeFilter(d) &&
+  matchesAnoFilter(d)
 );
 
 const bySituacao = SITUACAO_ORDER
@@ -587,8 +701,9 @@ const data = baseData.filter(d =>
 
 const previousBaseData = previousRawData.filter(d =>
   fConvenio.some(row => row.num_convenio === d.num_convenio && row.cod_tci === d.cod_tci) &&
-  (fSecretaria === "Todas" || d.secretaria === fSecretaria) &&
-  (fModalidade === "Todas" || d.modalidade === fModalidade)
+  matchesSecretariaFilter(d) &&
+  matchesModalidadeFilter(d) &&
+  matchesAnoFilter(d)
 );
 
 const previousData = previousBaseData.filter(d =>
@@ -605,7 +720,7 @@ const previousComSuspensiva = previousData.filter(d => d.situacao === "Contratad
 const previousSemSuspensiva = previousData.filter(d => d.situacao === "Contratado - Normal").length;
 const previousVlrTotal = previousData.reduce((s, d) => s + d.vlr_repasse, 0);
 const pctSuspensiva = total > 0 ? comSuspensiva / total : 0;
-const secretariaDrillField = fSecretaria === "Todas" ? "secretaria" : "modalidade";
+const secretariaDrillField = secretariaSelecionada.length === 1 ? "modalidade" : "secretaria";
 const secretariaDrillLabel = secretariaDrillField === "secretaria" ? "Secretaria" : "Modalidade";
 const secretariaDrillMarginLeft = secretariaDrillField === "secretaria" ? 90 : 240;
 const secretariaDrillData = [...new Set(
