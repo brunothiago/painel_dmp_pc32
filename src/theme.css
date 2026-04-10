@@ -214,7 +214,9 @@
 
 @media (max-width: 1100px) {
     .filters-bar {
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.9rem;
         align-items: stretch;
     }
 
@@ -229,6 +231,18 @@
     .filters-bar > .observablehq--block:last-child {
         display: flex;
         justify-content: flex-end;
+    }
+
+    .filters-bar > .observablehq--block:first-child {
+        order: 1;
+    }
+
+    .filters-bar > .observablehq--block:nth-child(2) {
+        order: 2;
+    }
+
+    .filters-bar > .observablehq--block:last-child {
+        order: 3;
     }
 }
 
@@ -346,6 +360,11 @@
     .filters-reset {
         width: 100%;
         justify-content: center;
+    }
+
+    .filters-bar form[class^="inputs-"] > div,
+    .filters-bar form[class*=" inputs-"] > div {
+        align-items: center;
     }
 }
 
