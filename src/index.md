@@ -238,12 +238,15 @@ const fConvenioInput = Inputs.search(rawData, {
 
 function localizeSearchResults(input) {
   const output = input.querySelector("output");
+  const countFormatter = new Intl.NumberFormat("pt-BR");
   const sync = () => {
     if (output) {
       const match = output.textContent.match(/^([\d.,]+)\s+results?$/i);
       if (match) {
-        const count = match[1];
-        output.textContent = `${count} ${count === "1" ? "resultado" : "resultados"}`;
+        const rawCount = match[1];
+        const count = Number(rawCount.replace(/[.,]/g, ""));
+        const formattedCount = Number.isFinite(count) ? countFormatter.format(count) : rawCount;
+        output.textContent = `${formattedCount} ${count === 1 ? "resultado" : "resultados"}`;
       }
     }
 
