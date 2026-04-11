@@ -5,9 +5,9 @@ toc: false
 
 ```js
 import * as Plot from "@observablehq/plot";
-import * as XLSX from "xlsx";
 import {html} from "htl";
 import {dsvFormat} from "d3-dsv";
+import {renderBaseDataTable} from "./components/base-data-table.js";
 import {metricGrid} from "./components/cards.js";
 import {cascadeChart, matchesCascadeSelection} from "./components/cascade-chart.js";
 import {formatNumber, formatCurrencyCompact, formatPercent, formatDate} from "./lib/formatters.js";
@@ -1512,7 +1512,6 @@ if (inicioPrazoVencidoSelecionado > 0 || inicioProx10Selecionado > 0) {
 ## Base de Dados
 
 ```js
-const PAGE_SIZE = 50;
 const hasCascadeSelection = Object.values(selectedCascade ?? {}).some(Boolean);
 const tableData = geoScopedData.filter(d =>
   (!hasCascadeSelection || matchesCascadeSelection(d, selectedCascade)) &&
@@ -1556,189 +1555,6 @@ const exportHeaders = {
   dt_inicio_obra: "Início Obra",
   vlr_repasse: "Repasse (R$)",
 };
-
-function makeExportButton(rows, columns) {
-  const btn = document.createElement("button");
-  btn.className = "export-btn";
-  btn.type = "button";
-  btn.textContent = `Exportar tabela filtrada (${rows.length})`;
-  btn.disabled = rows.length === 0;
-
-  btn.addEventListener("click", () => {
-    const dateColumns = new Set([
-      "dt_vencimento_suspensiva",
-      "dt_retirada_suspensiva",
-      "dt_assinatura",
-      "dt_lae",
-      "data_limite_licitacao_casa_civil",
-      "prazo_pub_licitacao",
-      "dt_pub_licitacao",
-      "prazo_homolog_licitacao",
-      "dt_homolog_licitacao",
-      "dt_vrpl",
-      "dt_aio",
-      "prazo_inicio_obra",
-      "dt_inicio_obra",
-    ]);
-
-    const exportRows = rows.map((row) => {
-      const exportRow = {};
-      for (const col of columns) {
-        let value = row[col] ?? "";
-        if (col === "_diff_label") { value = value || ""; }
-        else if (col === "vlr_repasse" && value !== "") value = Number(value) || 0;
-        else if (dateColumns.has(col)) value = value ? formatDate(value) : "";
-        exportRow[exportHeaders[col] ?? col] = value;
-      }
-      return exportRow;
-    });
-    const worksheet = XLSX.utils.json_to_sheet(exportRows);
-    const currencyColIndex = columns.indexOf("vlr_repasse");
-    if (currencyColIndex >= 0) {
-      const currencyColName = XLSX.utils.encode_col(currencyColIndex);
-      for (let rowIndex = 2; rowIndex <= exportRows.length + 1; rowIndex += 1) {
-        const cellRef = `${currencyColName}${rowIndex}`;
-        if (worksheet[cellRef]) worksheet[cellRef].z = "#,##0.00";
-      }
-    }
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Tabela Filtrada");
-    const stamp = new Date().toISOString().slice(0, 10);
-    XLSX.writeFileXLSX(workbook, `pc32-tabela-filtrada-${stamp}.xlsx`);
-  });
-
-  return btn;
-}
-
-function makePager(totalRows, pageSize) {
-  const el = Object.assign(document.createElement("div"), { value: 1 });
-  el.className = "pager";
-
-  el.setState = ({ totalRows: nextTotalRows = totalRows, page = el.value } = {}) => {
-    totalRows = nextTotalRows;
-    const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
-    const currentPage = Math.min(Math.max(1, page), totalPages);
-    el.value = currentPage;
-    el.innerHTML = "";
-
-    const from = totalRows === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-    const to = totalRows === 0 ? 0 : Math.min(currentPage * pageSize, totalRows);
-    const info = document.createElement("span");
-    info.className = "pager-info";
-    info.textContent = `${from}–${to} de ${totalRows}`;
-    el.appendChild(info);
-
-    const MAX_VISIBLE = 7;
-    let pages = [];
-    if (totalPages <= MAX_VISIBLE) {
-      pages = Array.from({length: totalPages}, (_, i) => i + 1);
-    } else {
-      pages = [1];
-      const left = Math.max(2, currentPage - 2);
-      const right = Math.min(totalPages - 1, currentPage + 2);
-      if (left > 2) pages.push("…");
-      for (let i = left; i <= right; i += 1) pages.push(i);
-      if (right < totalPages - 1) pages.push("…");
-      pages.push(totalPages);
-    }
-
-    const go = (nextPage) => {
-      if (nextPage === currentPage) return;
-      el.value = nextPage;
-      el.dispatchEvent(new Event("input", {bubbles: true}));
-    };
-
-    const prev = document.createElement("button");
-    prev.textContent = "‹";
-    prev.className = "pager-btn" + (currentPage === 1 ? " disabled" : "");
-    prev.disabled = currentPage === 1;
-    prev.addEventListener("click", () => go(currentPage - 1));
-    el.appendChild(prev);
-
-    for (const p of pages) {
-      const btn = document.createElement(p === "…" ? "span" : "button");
-      btn.textContent = p;
-      if (p === "…") {
-        btn.className = "pager-ellipsis";
-      } else {
-        btn.className = "pager-btn" + (p === currentPage ? " active" : "");
-        btn.addEventListener("click", () => go(p));
-      }
-      el.appendChild(btn);
-    }
-
-    const next = document.createElement("button");
-    next.textContent = "›";
-    next.className = "pager-btn" + (currentPage === totalPages ? " disabled" : "");
-    next.disabled = currentPage === totalPages;
-    next.addEventListener("click", () => go(currentPage + 1));
-    el.appendChild(next);
-  };
-
-  el.setState({totalRows, page: 1});
-  return el;
-}
-
-function makeTableControls(rows, columns, pagerView) {
-  const wrap = document.createElement("div");
-  wrap.className = "table-controls";
-  const exportBtn = makeExportButton(rows, columns);
-  wrap.append(pagerView, exportBtn);
-  return wrap;
-}
-
-function makePaginatedTable(rows, columns, options) {
-  const wrap = document.createElement("div");
-  const pagerView = makePager(rows.length, PAGE_SIZE);
-  const controls = makeTableControls(rows, columns, pagerView);
-  const tableView = Inputs.table(rows, {...options, rows: rows.length});
-  wrap.append(controls, tableView);
-
-  let observer;
-
-  const syncPagination = ({resetPage = false} = {}) => {
-    const bodyRows = Array.from(tableView.querySelectorAll("tbody tr"));
-    const totalRows = bodyRows.length;
-    const requestedPage = resetPage ? 1 : pagerView.value;
-    const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
-    const currentPage = Math.min(Math.max(1, requestedPage), totalPages);
-    const start = (currentPage - 1) * PAGE_SIZE;
-    const end = start + PAGE_SIZE;
-
-    bodyRows.forEach((row, index) => {
-      row.hidden = index < start || index >= end;
-    });
-
-    pagerView.setState({totalRows, page: currentPage});
-  };
-
-  pagerView.addEventListener("input", () => {
-    syncPagination();
-  });
-
-  const bindSortReset = () => {
-    tableView.querySelectorAll("thead th").forEach((cell) => {
-      if (cell.dataset.pageSortBound === "true") return;
-      cell.dataset.pageSortBound = "true";
-      cell.addEventListener("click", () => {
-        requestAnimationFrame(() => syncPagination({resetPage: true}));
-      });
-    });
-  };
-
-  requestAnimationFrame(() => {
-    bindSortReset();
-    syncPagination({resetPage: true});
-
-    observer = new MutationObserver(() => {
-      bindSortReset();
-      syncPagination();
-    });
-    observer.observe(tableView, {childList: true, subtree: true});
-  });
-
-  return wrap;
-}
 
 function makeColumnPicker(columns, headers) {
   const selected = new Set(columns);
@@ -1840,10 +1656,10 @@ function diffCol(value) {
   const el = html`<span class="diff-pill ${cls}">${label}</span>`;
   return el;
 }
-display(makePaginatedTable(tableData, activeColumns, {
+display(renderBaseDataTable({
+  rows: tableData,
   columns: activeColumns,
-  select: false,
-  header: {
+  headers: {
     _diff_label: "Alteração", num_convenio: "Convênio", cod_tci: "TCI", secretaria: "Secretaria",
     fase: "Fase", modalidade: "Modalidade", situacao: "Situação Contrato",
     situacao_suspensiva: "Situação Suspensiva",
@@ -1854,7 +1670,7 @@ display(makePaginatedTable(tableData, activeColumns, {
     dt_homolog_licitacao: "Homolog. Licitação", dt_vrpl: "VRPL", dt_aio: "AIO", prazo_inicio_obra: "Prazo Início Obra", status_inicio_obra: "Status Início Obra",
     dt_inicio_obra: "Início Obra", vlr_repasse: "Repasse (R$)",
   },
-  format: {
+  formatters: {
     _diff_label: diffCol,
     cod_tci: tciLinkCol,
     vlr_repasse: d => d.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
@@ -1863,7 +1679,8 @@ display(makePaginatedTable(tableData, activeColumns, {
     dt_homolog_licitacao: dateCol, dt_vrpl: dateCol, dt_aio: dateCol,
     dt_inicio_obra: dateCol, dt_vencimento_suspensiva: dateCol, dt_retirada_suspensiva: dateCol,
   },
-  multiple: false,
+  invalidation,
+  exportFilePrefix: "pc32-tabela-filtrada",
 }));
 ```
 

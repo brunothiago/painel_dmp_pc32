@@ -4,10 +4,10 @@ toc: false
 ---
 
 ```js
-import * as XLSX from "xlsx";
-import {html} from "htl";
 import {dsvFormat} from "d3-dsv";
+import {html} from "htl";
 import {metricGrid} from "./components/cards.js";
+import {renderAlteracoesDataTable} from "./components/alteracoes-table.js";
 import {formatNumber, formatDate} from "./lib/formatters.js";
 
 const changesRawText = await FileAttachment("data/base_alteracoes.csv").text();
@@ -153,102 +153,13 @@ alteracoesMetricGrid.classList.add("metrics-grid--alteracoes");
 display(alteracoesMetricGrid);
 ```
 
-<div class="filters-bar">
-
-```js
-const tiposDisponiveis = ["Todos", ...new Set(alteracaoRows.map(d => d.tipo))];
-const fTipo = view(Inputs.select(tiposDisponiveis, { label: "Tipo", value: "Todos" }));
-```
-
-```js
-const camposDisponiveis = ["Todos", ...[...new Set(alteracaoRows.map(d => d.campo).filter(c => c !== "—"))].sort()];
-const fCampo = view(Inputs.select(camposDisponiveis, { label: "Campo alterado", value: "Todos" }));
-```
-
-```js
-const ufsDisponiveis = ["Todas", ...[...new Set(alteracaoRows.map(d => d.uf).filter(Boolean))].sort()];
-const fUf = view(Inputs.select(ufsDisponiveis, { label: "UF", value: "Todas" }));
-```
-
-```js
-const secretariasDisponiveis = ["Todas", ...[...new Set(alteracaoRows.map(d => d.secretaria).filter(Boolean))].sort()];
-const fSecretaria = view(Inputs.select(secretariasDisponiveis, { label: "Secretaria", value: "Todas" }));
-```
-
-</div>
-
-```js
-const filteredRows = alteracaoRows.filter(d =>
-  (fTipo === "Todos" || d.tipo === fTipo) &&
-  (fCampo === "Todos" || d.campo === fCampo) &&
-  (fUf === "Todas" || d.uf === fUf) &&
-  (fSecretaria === "Todas" || d.secretaria === fSecretaria)
-);
-```
-
 <div class="table-shell">
 
 ```js
-if (filteredRows.length > 0) {
-  const tableHeader = html`<div class="table-controls table-controls--top">
-    <p class="metric-detail">${formatNumber(filteredRows.length)} registro${filteredRows.length > 1 ? "s" : ""} encontrado${filteredRows.length > 1 ? "s" : ""}</p>
-  </div>`;
-  tableHeader.append(makeExportAlteracoes(filteredRows));
-  display(tableHeader);
-
-  const tableScroll = html`<div class="table-scroll table-scroll--alteracoes"></div>`;
-  tableScroll.append(Inputs.table(filteredRows, {
-    columns: ["data_fmt", "num_convenio", "cod_tci", "uf", "secretaria", "tipo", "campo", "anterior", "atual"],
-    header: {
-      data_fmt: "Data",
-      num_convenio: "Convênio",
-      cod_tci: "TCI",
-      uf: "UF",
-      secretaria: "Secretaria",
-      tipo: "Tipo",
-      campo: "Campo",
-      anterior: "Valor Anterior",
-      atual: "Valor Atual",
-    },
-    rows: 25,
-    select: false,
-    multiple: false,
-  }));
-
-  display(tableScroll);
+if (alteracaoRows.length > 0) {
+  display(renderAlteracoesDataTable(alteracaoRows, invalidation));
 } else {
-  display(html`<p>Nenhuma alteração encontrada com os filtros selecionados.</p>`);
-}
-```
-
-```js
-function makeExportAlteracoes(rows) {
-  const btn = document.createElement("button");
-  btn.className = "export-btn";
-  btn.type = "button";
-  btn.textContent = `Exportar alterações (${rows.length})`;
-  btn.disabled = rows.length === 0;
-
-  btn.addEventListener("click", () => {
-    const exportRows = rows.map(row => ({
-      "Data": row.data_fmt,
-      "Convênio": row.num_convenio,
-      "TCI": row.cod_tci,
-      "UF": row.uf,
-      "Secretaria": row.secretaria,
-      "Tipo": row.tipo,
-      "Campo": row.campo,
-      "Valor Anterior": row.anterior,
-      "Valor Atual": row.atual,
-    }));
-    const worksheet = XLSX.utils.json_to_sheet(exportRows);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Alterações");
-    const stamp = new Date().toISOString().slice(0, 10);
-    XLSX.writeFileXLSX(workbook, `pc32-alteracoes-${stamp}.xlsx`);
-  });
-
-  return btn;
+  display(html`<p>Nenhuma alteração encontrada.</p>`);
 }
 ```
 

@@ -3148,6 +3148,342 @@ body {
     max-width: none;
 }
 
+.datatable-block {
+    display: grid;
+    gap: 0.9rem;
+    width: 100%;
+    min-width: 0;
+}
+
+.datatable-block .dataTables_wrapper {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.datatable-scroll {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+}
+
+.datatable-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    width: 100%;
+    min-width: 0;
+}
+
+.datatable-toolbar--bottom {
+    align-items: flex-start;
+}
+
+.datatable-block .dataTables_wrapper .dataTables_length,
+.datatable-block .dataTables_wrapper .dataTables_filter {
+    margin-bottom: 0.85rem;
+    float: none;
+    text-align: left;
+}
+
+.datatable-block .dataTables_length label,
+.datatable-block .dataTables_filter label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.82rem;
+    color: var(--theme-foreground-muted);
+    font-weight: 500;
+}
+
+.datatable-block .dataTables_filter input,
+.datatable-block .dataTables_length select,
+.datatable-filter {
+    appearance: none;
+    -webkit-appearance: none;
+    min-height: 2.4rem;
+    padding: 0.36rem 0.8rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #f3f4f6;
+    color: #1f2937;
+    font: inherit;
+    box-shadow: none;
+}
+
+.datatable-block .dataTables_filter input {
+    min-width: 240px;
+}
+
+.datatable-block .dataTables_length select,
+.datatable-filter[type="search"],
+.datatable-filter:not([type]) {
+    background-image: none;
+}
+
+.datatable-block .dataTables_length select,
+.datatable-filter:not([type="search"]) {
+    padding-right: 2rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M2.25 4.5 6 8.25 9.75 4.5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 12px 12px;
+}
+
+.datatable-block .dataTables_filter input:hover,
+.datatable-block .dataTables_filter input:focus,
+.datatable-block .dataTables_length select:hover,
+.datatable-block .dataTables_length select:focus,
+.datatable-filter:hover,
+.datatable-filter:focus {
+    border-color: #cbd5e1;
+    background-color: #fff;
+    outline: none;
+}
+
+.datatable-filters-row th {
+    padding-top: 0.55rem;
+    padding-bottom: 0.55rem;
+}
+
+.datatable-filter {
+    width: 100%;
+    min-width: 0;
+}
+
+.datatable-filters-row .datatable-filter[type="search"] {
+    min-width: 8rem;
+}
+
+.datatable-filters-row .datatable-filter.col-data {
+    width: 5.8rem;
+    min-width: 5.8rem;
+}
+
+.datatable-filters-row .datatable-filter.col-convenio {
+    width: 6.4rem;
+    min-width: 6.4rem;
+}
+
+.datatable-filters-row .datatable-filter.col-tci {
+    width: 5.4rem;
+    min-width: 5.4rem;
+}
+
+.datatable-filters-row .datatable-filter.col-uf {
+    width: 3.2rem;
+    min-width: 3.2rem;
+}
+
+.datatable-filters-row .datatable-filter.col-secretaria,
+.datatable-filters-row .datatable-filter.col-tipo {
+    width: 4.4rem;
+    min-width: 4.4rem;
+}
+
+.datatable-filters-row .datatable-filter.col-campo {
+    width: 10rem;
+    min-width: 10rem;
+}
+
+.datatable-filters-row .datatable-filter.col-anterior,
+.datatable-filters-row .datatable-filter.col-atual {
+    width: 11rem;
+    min-width: 11rem;
+}
+
+.datatable-block table.dataTable thead > tr > th {
+    color: var(--theme-foreground);
+    font-weight: 700;
+}
+
+.datatable-block .col-data {
+    width: 6.2rem;
+    min-width: 6.2rem;
+}
+
+.datatable-block .col-convenio {
+    width: 7rem;
+    min-width: 7rem;
+}
+
+.datatable-block .col-tci {
+    width: 5.2rem;
+    min-width: 5.2rem;
+}
+
+.datatable-block .col-uf {
+    width: 3.5rem;
+    min-width: 3.5rem;
+}
+
+.datatable-block .col-secretaria {
+    width: 4.5rem;
+    min-width: 4.5rem;
+}
+
+.datatable-block .col-tipo {
+    width: 4.5rem;
+    min-width: 4.5rem;
+}
+
+.datatable-block .col-campo,
+.datatable-block .col-anterior,
+.datatable-block .col-atual {
+    min-width: 11rem;
+}
+
+.datatable-block table.dataTable tbody td.dt-body-wrap {
+    white-space: normal;
+}
+
+.datatable-block .dataTables_info,
+.datatable-block .dataTables_paginate {
+    margin-top: 0;
+    font-size: 0.8rem;
+    color: var(--theme-foreground-muted);
+}
+
+.datatable-block .dataTables_paginate .paginate_button {
+    border-radius: 999px !important;
+}
+
+.datatable-block .dataTables_wrapper .dataTables_paginate,
+.datatable-block .dataTables_wrapper .dataTables_info {
+    float: none;
+}
+
+.datatable-block .dataTables_wrapper .dataTables_paginate {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.2rem;
+}
+
+.datatable-toolbar .dataTables_length,
+.datatable-toolbar .dataTables_filter,
+.datatable-toolbar .dataTables_info,
+.datatable-toolbar .dataTables_paginate {
+    margin: 0;
+}
+
+.datatable-toolbar .dataTables_filter {
+    margin-left: auto;
+}
+
+.datatable-block table.dataTable {
+    width: max-content !important;
+    min-width: 100%;
+}
+
+.base-datatable-block .datatable-filters-row .datatable-filter[type="search"] {
+    min-width: 6.25rem;
+}
+
+.base-datatable-block .datatable-filters-row .datatable-filter.col-diff {
+    width: 5.4rem;
+    min-width: 5.4rem;
+}
+
+.base-datatable-block .datatable-filters-row .datatable-filter.col-convenio {
+    width: 6.2rem;
+    min-width: 6.2rem;
+}
+
+.base-datatable-block .datatable-filters-row .datatable-filter.col-tci {
+    width: 6.5rem;
+    min-width: 6.5rem;
+}
+
+.base-datatable-block .datatable-filters-row .datatable-filter.col-secretaria {
+    width: 4.8rem;
+    min-width: 4.8rem;
+}
+
+.base-datatable-block .datatable-filters-row .datatable-filter.col-date {
+    width: 6.75rem;
+    min-width: 6.75rem;
+}
+
+.base-datatable-block .datatable-filters-row .datatable-filter.col-medium {
+    width: 7.5rem;
+    min-width: 7.5rem;
+}
+
+.base-datatable-block .datatable-filters-row .datatable-filter.col-status {
+    width: 9.5rem;
+    min-width: 9.5rem;
+}
+
+.base-datatable-block .datatable-filters-row .datatable-filter.col-money {
+    width: 7.75rem;
+    min-width: 7.75rem;
+}
+
+.base-datatable-block .datatable-filters-row .datatable-filter.col-long {
+    width: 10.5rem;
+    min-width: 10.5rem;
+}
+
+.base-datatable-block .datatable-filters-row .datatable-filter.col-default {
+    width: 8rem;
+    min-width: 8rem;
+}
+
+.base-datatable-block .col-diff {
+    width: 5.6rem;
+    min-width: 5.6rem;
+}
+
+.base-datatable-block .col-convenio {
+    width: 6.2rem;
+    min-width: 6.2rem;
+}
+
+.base-datatable-block .col-tci {
+    width: 6.5rem;
+    min-width: 6.5rem;
+}
+
+.base-datatable-block .col-secretaria {
+    width: 4.8rem;
+    min-width: 4.8rem;
+}
+
+.base-datatable-block .col-date {
+    width: 6.75rem;
+    min-width: 6.75rem;
+}
+
+.base-datatable-block .col-medium {
+    width: 7.5rem;
+    min-width: 7.5rem;
+}
+
+.base-datatable-block .col-status {
+    width: 9.5rem;
+    min-width: 9.5rem;
+}
+
+.base-datatable-block .col-money {
+    width: 7.75rem;
+    min-width: 7.75rem;
+}
+
+.base-datatable-block .col-long {
+    width: 10.5rem;
+    min-width: 10.5rem;
+}
+
+.base-datatable-block .col-default {
+    width: 8rem;
+    min-width: 8rem;
+}
+
 .table-shell h2 {
     margin: 0 0 0.75rem;
     font-family: var(--font-serif);
