@@ -116,9 +116,9 @@ const pageTitleBar = document.createElement("div");
 pageTitleBar.className = "page-titlebar dashboard-toolbar";
 pageTitleBar.innerHTML = `
   <div class="page-titlebar__heading dashboard-toolbar__title">
-    <h1>Alteracoes desde ${snapshotPrimeiroLabel}</h1>
+    <h1>Alterações desde ${snapshotPrimeiroLabel}</h1>
   </div>
-  <div class="page-titlebar__meta dashboard-toolbar__side" aria-label="Data de atualizacao">
+  <div class="page-titlebar__meta dashboard-toolbar__side" aria-label="Data de atualização">
     <div class="dashboard-toolbar__meta">
       <span class="page-titlebar__meta-label">Atualizado em</span>
       <strong class="page-titlebar__meta-value">${updatedAt}</strong>
@@ -132,12 +132,16 @@ display(pageTitleBar);
 const totalAlteracoes = alteracaoRows.length;
 const totalEmpreendimentos = empreendimentosAlterados.size;
 const novos = alteracaoRows.filter(d => d.tipo === "Novo").length;
-const alterados = new Set(alteracaoRows.filter(d => d.tipo === "Alterado").map(d => d.num_convenio)).size;
+const alterados = new Set(
+  alteracaoRows
+    .filter(d => d.tipo === "Alterado")
+    .map(d => (d.num_convenio !== "—" ? d.num_convenio : d.cod_tci))
+).size;
 const removidos = alteracaoRows.filter(d => d.tipo === "Removido").length;
 
 display(metricGrid([
-  { label: "Empreendimentos com alteracao", value: formatNumber(totalEmpreendimentos), tone: "default" },
-  { label: "Total de alteracoes", value: formatNumber(totalAlteracoes), tone: "blue" },
+  { label: "Empreendimentos com alteração", value: formatNumber(totalEmpreendimentos), tone: "default" },
+  { label: "Total de alterações", value: formatNumber(totalAlteracoes), tone: "blue" },
   { label: "Novos", value: formatNumber(novos), tone: "green" },
   { label: "Alterados", value: formatNumber(alterados), tone: "gold" },
   { label: "Removidos", value: formatNumber(removidos), tone: "red" },
@@ -187,7 +191,7 @@ if (filteredRows.length > 0) {
     columns: ["data_fmt", "num_convenio", "cod_tci", "uf", "secretaria", "tipo", "campo", "anterior", "atual"],
     header: {
       data_fmt: "Data",
-      num_convenio: "Convenio",
+      num_convenio: "Convênio",
       cod_tci: "TCI",
       uf: "UF",
       secretaria: "Secretaria",
@@ -201,7 +205,7 @@ if (filteredRows.length > 0) {
     multiple: false,
   }));
 } else {
-  display(html`<p>Nenhuma alteracao encontrada com os filtros selecionados.</p>`);
+  display(html`<p>Nenhuma alteração encontrada com os filtros selecionados.</p>`);
 }
 ```
 
@@ -210,13 +214,13 @@ function makeExportAlteracoes(rows) {
   const btn = document.createElement("button");
   btn.className = "export-btn";
   btn.type = "button";
-  btn.textContent = `Exportar alteracoes (${rows.length})`;
+  btn.textContent = `Exportar alterações (${rows.length})`;
   btn.disabled = rows.length === 0;
 
   btn.addEventListener("click", () => {
     const exportRows = rows.map(row => ({
       "Data": row.data_fmt,
-      "Convenio": row.num_convenio,
+      "Convênio": row.num_convenio,
       "TCI": row.cod_tci,
       "UF": row.uf,
       "Secretaria": row.secretaria,
@@ -227,7 +231,7 @@ function makeExportAlteracoes(rows) {
     }));
     const worksheet = XLSX.utils.json_to_sheet(exportRows);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Alteracoes");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Alterações");
     const stamp = new Date().toISOString().slice(0, 10);
     XLSX.writeFileXLSX(workbook, `pc32-alteracoes-${stamp}.xlsx`);
   });
