@@ -112,11 +112,26 @@ const rawData = rawDataParsed.map(d => {
 });
 
 const secretarias = [...new Set(rawData.map(d => d.secretaria).filter(Boolean))].sort();
-const updatedAt = new Intl.DateTimeFormat("pt-BR", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-}).format(new Date());
+
+function maxSnapshotDateLabel(snapshotMeta) {
+  const candidates = [
+    snapshotMeta?.snapshot_atual,
+    snapshotMeta?.snapshot_anterior,
+    snapshotMeta?.snapshot_primeiro,
+  ]
+    .map(parseDate)
+    .filter((date) => date instanceof Date && !isNaN(date));
+
+  if (candidates.length === 0) return "—";
+
+  const maxDate = candidates.reduce((latest, current) =>
+    current.getTime() > latest.getTime() ? current : latest
+  );
+
+  return formatDate(maxDate);
+}
+
+const updatedAt = maxSnapshotDateLabel(baseDiffLatest);
 
 function formatMetricDelta(value) {
   if (value == null || value === 0) {
@@ -214,14 +229,16 @@ if (!window.__pc32RuleTooltipInit) {
 
 ```js
 const pageTitleBar = document.createElement("div");
-pageTitleBar.className = "page-titlebar";
+pageTitleBar.className = "page-titlebar dashboard-toolbar";
 pageTitleBar.innerHTML = `
-  <div class="page-titlebar__heading">
+  <div class="page-titlebar__heading dashboard-toolbar__title">
     <h1>Painel PC 32 — Novo PAC Seleção</h1>
   </div>
-  <div class="page-titlebar__meta" aria-label="Data de atualização">
-    <span class="page-titlebar__meta-label">Atualizado em</span>
-    <strong class="page-titlebar__meta-value">${updatedAt}</strong>
+  <div class="page-titlebar__meta dashboard-toolbar__side" aria-label="Data de atualização">
+    <div class="dashboard-toolbar__meta">
+      <span class="page-titlebar__meta-label">Atualizado em</span>
+      <strong class="page-titlebar__meta-value">${updatedAt}</strong>
+    </div>
   </div>
 `;
 display(pageTitleBar);
@@ -302,13 +319,13 @@ function makeMultiPicker(labelText, options, selectedValues = [], allLabel = "To
   grid.className = "multi-picker__grid";
 
   const updateToggleText = () => {
-    if (selected.size === 0) toggle.textContent = allLabel;
+    if (selected.size === 0 || selected.size === options.length) toggle.textContent = allLabel;
     else if (selected.size === 1) toggle.textContent = [...selected][0];
     else toggle.textContent = `${selected.size} ${selectedLabel}`;
   };
 
   const emit = () => {
-    wrap.value = options.filter(option => selected.has(option));
+    wrap.value = selected.size === options.length ? [] : options.filter(option => selected.has(option));
     updateToggleText();
     wrap.dispatchEvent(new Event("input", { bubbles: true }));
   };
@@ -412,10 +429,13 @@ function computeCascadeOptions(data, state) {
 
 function sanitizeCascadeState(data, state) {
   const options = computeCascadeOptions(data, state);
+  const secretaria = state.secretaria.filter(value => options.secretaria.includes(value));
+  const modalidade = state.modalidade.filter(value => options.modalidade.includes(value));
+  const ano = state.ano.filter(value => options.ano.includes(value));
   return {
-    secretaria: state.secretaria.filter(value => options.secretaria.includes(value)),
-    modalidade: state.modalidade.filter(value => options.modalidade.includes(value)),
-    ano: state.ano.filter(value => options.ano.includes(value))
+    secretaria: secretaria.length === options.secretaria.length ? [] : secretaria,
+    modalidade: modalidade.length === options.modalidade.length ? [] : modalidade,
+    ano: ano.length === options.ano.length ? [] : ano
   };
 }
 
@@ -564,10 +584,10 @@ const bySuspensiva = SUSPENSIVA_ORDER
   .filter(d => d.qtd > 0);
 
 // ── helper: gráfico clicável como input reativo
-function makeClickableChart(plotEl, items, keyField) {
+function makeClickableChart(plotEl, items, keyField, initialValue = null) {
   const wrapper = document.createElement("div");
   wrapper.style.position = "relative";
-  const input = Object.assign(wrapper, { value: null });
+  const input = Object.assign(wrapper, { value: initialValue });
 
   const badge = document.createElement("div");
   badge.style.cssText = `
@@ -608,8 +628,229 @@ function makeClickableChart(plotEl, items, keyField) {
   badge.addEventListener("click", e => { setVal(null); e.stopPropagation(); });
   plotEl.addEventListener("click", () => { if (input.value != null) setVal(null); });
 
+  sync(initialValue);
   wrapper.append(plotEl, badge);
   return input;
+}
+
+function renderSecretariaOverview(rows, field, label, marginLeft) {
+  const wrap = Object.assign(document.createElement("div"), {
+    className: "grid-two",
+    value: null
+  });
+
+  function setValue(nextValue) {
+    wrap.value = wrap.value === nextValue ? null : nextValue;
+    render();
+    wrap.dispatchEvent(new Event("input", {bubbles: true}));
+  }
+
+  function buildChartData() {
+    return [...new Set(rows.map(d => d[field]).filter(Boolean))]
+      .map((group) => {
+        const groupRows = rows.filter(d => d[field] === group);
+        return {
+          group,
+          contratos: groupRows.length,
+          vlr_repasse: groupRows.reduce((sum, d) => sum + d.vlr_repasse, 0),
+        };
+      })
+      .filter(d => d.contratos > 0)
+      .sort((a, b) => b.contratos - a.contratos || b.vlr_repasse - a.vlr_repasse);
+  }
+
+  function makeCard(title, subtitle, chartNode) {
+    const card = document.createElement("div");
+    card.className = "card";
+    const h2 = document.createElement("h2");
+    h2.textContent = title;
+    const p = document.createElement("p");
+    p.textContent = subtitle;
+    card.append(h2, p, chartNode);
+    return card;
+  }
+
+  function render() {
+    wrap.innerHTML = "";
+    const chartData = buildChartData();
+
+    const contratosChart = makeClickableChart(
+      Plot.plot({
+        marginLeft,
+        marginRight: 90,
+        height: Math.max(180, chartData.length * 52 + 40),
+        style: { fontFamily: "var(--font-sans, IBM Plex Sans, sans-serif)", fontSize: 13 },
+        x: { label: null, grid: false, axis: null },
+        y: { label: null, domain: chartData.map(d => d.group) },
+        marks: [
+          Plot.barX(chartData, {
+            x: "contratos",
+            y: "group",
+            fill: "#356c8c",
+            rx: 6,
+          }),
+          Plot.text(chartData, {
+            x: "contratos",
+            y: "group",
+            text: d => formatNumber(d.contratos),
+            dx: 6,
+            textAnchor: "start",
+            fontSize: 12,
+            fill: "#5b6470",
+          }),
+        ],
+      }),
+      chartData,
+      "group",
+      wrap.value
+    );
+    contratosChart.addEventListener("input", () => setValue(contratosChart.value));
+
+    const repasseChart = makeClickableChart(
+      Plot.plot({
+        marginLeft,
+        marginRight: 110,
+        height: Math.max(180, chartData.length * 52 + 40),
+        style: { fontFamily: "var(--font-sans, IBM Plex Sans, sans-serif)", fontSize: 13 },
+        x: { label: null, grid: false, axis: null },
+        y: { label: null, domain: chartData.map(d => d.group) },
+        marks: [
+          Plot.barX(chartData, {
+            x: "vlr_repasse",
+            y: "group",
+            fill: "#0f766e",
+            rx: 6,
+          }),
+          Plot.text(chartData, {
+            x: "vlr_repasse",
+            y: "group",
+            text: d => formatCurrencyCompact(d.vlr_repasse),
+            dx: 6,
+            textAnchor: "start",
+            fontSize: 12,
+            fill: "#5b6470",
+          }),
+        ],
+      }),
+      chartData,
+      "group",
+      wrap.value
+    );
+    repasseChart.addEventListener("input", () => setValue(repasseChart.value));
+
+    wrap.append(
+      makeCard(`Contratos por ${label}`, "Distribuição da quantidade de contratos na seleção atual", contratosChart),
+      makeCard(`Repasse por ${label}`, "Distribuição do valor total de repasse na seleção atual", repasseChart)
+    );
+  }
+
+  render();
+  return wrap;
+}
+
+const GEO_EMPTY_LABEL = "Não informado";
+const REGIAO_COLORS = {
+  "Nordeste": "#c2410c",
+  "Sudeste": "#0f766e",
+  "Norte": "#7c3aed",
+  "Sul": "#2563eb",
+  "Centro-Oeste": "#b45309",
+  [GEO_EMPTY_LABEL]: "#64748b",
+};
+const GEO_FALLBACK_COLORS = ["#0f766e", "#2563eb", "#7c3aed", "#c2410c", "#b45309", "#be123c", "#0369a1", "#4d7c0f"];
+
+function normalizeGeoLabel(value) {
+  const normalized = typeof value === "string" ? value.trim() : "";
+  return normalized || GEO_EMPTY_LABEL;
+}
+
+function colorForGeoLabel(label, index) {
+  return REGIAO_COLORS[label] ?? GEO_FALLBACK_COLORS[index % GEO_FALLBACK_COLORS.length];
+}
+
+function buildGeoBreakdown(rows, field) {
+  const counts = d3.rollup(rows, (values) => values.length, (row) => normalizeGeoLabel(row[field]));
+  return [...counts.entries()]
+    .map(([label, qtd], index) => ({label, qtd, color: colorForGeoLabel(label, index)}))
+    .sort((a, b) => b.qtd - a.qtd || a.label.localeCompare(b.label, "pt-BR"));
+}
+
+function matchesGeoSelection(d, selection = {}) {
+  return (
+    (selection?.regiao == null || normalizeGeoLabel(d.regiao) === selection.regiao) &&
+    (selection?.uf == null || normalizeGeoLabel(d.uf) === selection.uf)
+  );
+}
+
+function makeGeoCascade(rows) {
+  const wrap = Object.assign(document.createElement("div"), {
+    value: {regiao: null, uf: null}
+  });
+  wrap.className = "casc-chart";
+
+  function render() {
+    wrap.innerHTML = "";
+    const clear = makeFlowElement("button", "casc-clear", "Limpar seleção");
+    clear.hidden = !Object.values(wrap.value).some(Boolean);
+    clear.addEventListener("click", () => {
+      wrap.value = {regiao: null, uf: null};
+      render();
+      wrap.dispatchEvent(new Event("input", {bubbles: true}));
+    });
+    wrap.append(clear);
+
+    const regiaoData = buildGeoBreakdown(rows, "regiao");
+    const total = rows.length;
+
+    wrap.append(
+      makeFlowLevel(
+        `${formatNumber(total)} contratos no recorte atual`,
+        "por região",
+        regiaoData,
+        total,
+        {
+          filterKey: "regiao",
+          selectedValue: wrap.value.regiao,
+          onSelect: (_key, label) => {
+            const nextRegiao = wrap.value.regiao === label ? null : label;
+            wrap.value = {regiao: nextRegiao, uf: null};
+            render();
+            wrap.dispatchEvent(new Event("input", {bubbles: true}));
+          }
+        }
+      )
+    );
+
+    if (wrap.value.regiao != null) {
+      const ufBase = rows.filter(d => normalizeGeoLabel(d.regiao) === wrap.value.regiao);
+      const ufData = buildGeoBreakdown(ufBase, "uf");
+
+      if (ufData.length > 0) {
+        if (!ufData.some(d => d.label === wrap.value.uf)) wrap.value = {...wrap.value, uf: null};
+        wrap.append(makeFlowConnector(`estados da região ${wrap.value.regiao}`));
+        wrap.append(
+          makeFlowLevel(
+            `${formatNumber(ufBase.length)} contratos na região ${wrap.value.regiao}`,
+            "por UF",
+            ufData,
+            ufBase.length,
+            {
+              filterKey: "uf",
+              selectedValue: wrap.value.uf,
+              onSelect: (_key, label) => {
+                wrap.value = {...wrap.value, uf: wrap.value.uf === label ? null : label};
+                render();
+                wrap.dispatchEvent(new Event("input", {bubbles: true}));
+              }
+            }
+          )
+        );
+      }
+    }
+  }
+
+  render();
+  return wrap;
 }
 
 const LICITACAO_PRAZO_ORDER = ["Vencida", "Próximos 30 dias", "No prazo"];
@@ -837,6 +1078,222 @@ function renderLicitacaoFlow(data) {
   return container;
 }
 
+function renderLicitacaoExplorer(data, previousData) {
+  const initialFlow = {pub_etapa: null, pub_prazo: null, homolog_etapa: null, homolog_prazo: null};
+  const container = Object.assign(makeFlowElement("div", "licitacao-explorer"), {
+    value: {flow: initialFlow, casaCivil: null}
+  });
+
+  const clear = makeFlowElement("button", "casc-clear", "Limpar seleção");
+  clear.type = "button";
+  clear.hidden = true;
+  clear.addEventListener("click", () => {
+    container.value = {flow: {...initialFlow}, casaCivil: null};
+    render();
+    container.dispatchEvent(new Event("input", {bubbles: true}));
+  });
+
+  function setFlow(key, label) {
+    container.value = {
+      ...container.value,
+      flow: {
+        ...container.value.flow,
+        [key]: container.value.flow[key] === label ? null : label
+      }
+    };
+    render();
+    container.dispatchEvent(new Event("input", {bubbles: true}));
+  }
+
+  function setCasaCivil(value) {
+    container.value = {
+      ...container.value,
+      casaCivil: container.value.casaCivil === value ? null : value
+    };
+    render();
+    container.dispatchEvent(new Event("input", {bubbles: true}));
+  }
+
+  function render() {
+    container.innerHTML = "";
+    clear.hidden = !Object.values(container.value.flow).some(Boolean) && container.value.casaCivil == null;
+
+    const eligible = data.filter(d => d.dt_retirada_suspensiva && d.situacao !== "Cancelado ou Distratado");
+    const previousEligible = previousData.filter(d => d.dt_retirada_suspensiva && d.situacao !== "Cancelado ou Distratado");
+    const flowSource = eligible.filter(d => matchesCasaCivilSelection(d, container.value.casaCivil));
+    const cascadeBase = flowSource.filter(d => matchesLicitacaoSelection(d, container.value.flow));
+    const casaCivilSource = eligible.filter(d => matchesLicitacaoSelection(d, container.value.flow));
+    const previousSelecionada = previousEligible
+      .filter(d => matchesLicitacaoSelection(d, container.value.flow))
+      .filter(d => matchesCasaCivilSelection(d, container.value.casaCivil));
+
+    const valorSelecionado = cascadeBase.reduce((sum, d) => sum + d.vlr_repasse, 0);
+    const previousValorSelecionado = previousSelecionada.reduce((sum, d) => sum + d.vlr_repasse, 0);
+    const aguardandoPublicacaoSelecionada = cascadeBase.filter(d => !d.dt_pub_licitacao);
+    const previousAguardandoPublicacaoSelecionada = previousSelecionada.filter(d => !d.dt_pub_licitacao);
+    const publicacaoVencidaSelecionada = aguardandoPublicacaoSelecionada.filter(d => d.status_pub_licitacao === "Vencida").length;
+    const previousPublicacaoVencidaSelecionada = previousAguardandoPublicacaoSelecionada.filter(d => d.status_pub_licitacao === "Vencida").length;
+    const publicacaoProx30Selecionada = aguardandoPublicacaoSelecionada.filter(d => d.status_pub_licitacao === "Próximos 30 dias").length;
+    const previousPublicacaoProx30Selecionada = previousAguardandoPublicacaoSelecionada.filter(d => d.status_pub_licitacao === "Próximos 30 dias").length;
+    const publicadasSelecionada = cascadeBase.filter(d => d.dt_pub_licitacao);
+    const previousPublicadasSelecionada = previousSelecionada.filter(d => d.dt_pub_licitacao);
+    const homologacaoPendenteSelecionada = publicadasSelecionada.filter(d => !d.dt_homolog_licitacao);
+    const previousHomologacaoPendenteSelecionada = previousPublicadasSelecionada.filter(d => !d.dt_homolog_licitacao);
+    const homologacaoVencidaSelecionada = homologacaoPendenteSelecionada.filter(d => d.status_homolog_licitacao === "Vencida").length;
+    const previousHomologacaoVencidaSelecionada = previousHomologacaoPendenteSelecionada.filter(d => d.status_homolog_licitacao === "Vencida").length;
+    const homologacaoProx30Selecionada = homologacaoPendenteSelecionada.filter(d => d.status_homolog_licitacao === "Próximos 30 dias").length;
+    const previousHomologacaoProx30Selecionada = previousHomologacaoPendenteSelecionada.filter(d => d.status_homolog_licitacao === "Próximos 30 dias").length;
+
+    const cumprimentoCasaCivil = [
+      { status: "Cumpriu", qtd: casaCivilSource.filter(d => d.status_regra_casa_civil === "Cumpriu").length, color: LICITACAO_CORES["Cumpriu"] },
+      { status: "Não cumpriu", qtd: casaCivilSource.filter(d => d.status_regra_casa_civil === "Não cumpriu").length, color: LICITACAO_CORES["Não cumpriu"] },
+      { status: "Fora do escopo", qtd: casaCivilSource.filter(d => d.status_regra_casa_civil === "Fora do escopo").length, color: LICITACAO_CORES["Fora do escopo"] },
+    ].filter(d => d.qtd > 0);
+
+    container.append(metricGrid([
+      { label: "Com retirada de suspensiva", value: formatNumber(cascadeBase.length), delta: buildMetricDelta(cascadeBase.length, previousSelecionada.length), tone: "default" },
+      {
+        label: "Valor dos contratos",
+        value: formatCurrencyCompact(valorSelecionado),
+        detail: `${formatNumber(cascadeBase.length)} contrato${cascadeBase.length === 1 ? "" : "s"} no recorte atual da licitação`,
+        delta: buildMetricDelta(valorSelecionado, previousValorSelecionado, formatCurrencyDelta),
+        tone: "blue",
+      },
+      { label: "Aguardando publicação", value: formatNumber(aguardandoPublicacaoSelecionada.length), detail: formatPercent(cascadeBase.length > 0 ? aguardandoPublicacaoSelecionada.length / cascadeBase.length : 0) + " com retirada de suspensiva", delta: buildMetricDelta(aguardandoPublicacaoSelecionada.length, previousAguardandoPublicacaoSelecionada.length), tone: "gold" },
+      { label: "Publicação vencida", value: formatNumber(publicacaoVencidaSelecionada), detail: "prazo de 120 dias após retirada da suspensiva", delta: buildMetricDelta(publicacaoVencidaSelecionada, previousPublicacaoVencidaSelecionada), tone: "red" },
+      { label: "Publicação nos próximos 30 dias", value: formatNumber(publicacaoProx30Selecionada), delta: buildMetricDelta(publicacaoProx30Selecionada, previousPublicacaoProx30Selecionada), tone: "gold" },
+      { label: "Homologação vencida", value: formatNumber(homologacaoVencidaSelecionada), detail: "prazo de 120 dias após publicação", delta: buildMetricDelta(homologacaoVencidaSelecionada, previousHomologacaoVencidaSelecionada), tone: "red" },
+      { label: "Homologação nos próximos 30 dias", value: formatNumber(homologacaoProx30Selecionada), delta: buildMetricDelta(homologacaoProx30Selecionada, previousHomologacaoProx30Selecionada), tone: "gold" },
+    ]));
+
+    if (publicacaoVencidaSelecionada > 0 || publicacaoProx30Selecionada > 0 || homologacaoVencidaSelecionada > 0 || homologacaoProx30Selecionada > 0) {
+      const alertEl = document.createElement("div");
+      alertEl.className = "urgency-alert";
+      alertEl.innerHTML = `
+        <div class="urgency-alert__icon">⚠️</div>
+        <div class="urgency-alert__body">
+          <div class="urgency-alert__title">Atenção: licitações com prazo crítico</div>
+          <div class="urgency-alert__text">
+            ${publicacaoVencidaSelecionada > 0 ? `<strong>${formatNumber(publicacaoVencidaSelecionada)}</strong> contrato${publicacaoVencidaSelecionada > 1 ? "s" : ""} com <strong>publicação vencida</strong>. ` : ""}
+            ${publicacaoProx30Selecionada > 0 ? `<strong>${formatNumber(publicacaoProx30Selecionada)}</strong> contrato${publicacaoProx30Selecionada > 1 ? "s" : ""} com publicação nos <strong>próximos 30 dias</strong>. ` : ""}
+            ${homologacaoVencidaSelecionada > 0 ? `<strong>${formatNumber(homologacaoVencidaSelecionada)}</strong> contrato${homologacaoVencidaSelecionada > 1 ? "s" : ""} com <strong>homologação vencida</strong>. ` : ""}
+            ${homologacaoProx30Selecionada > 0 ? `<strong>${formatNumber(homologacaoProx30Selecionada)}</strong> contrato${homologacaoProx30Selecionada > 1 ? "s" : ""} com homologação nos <strong>próximos 30 dias</strong>.` : ""}
+          </div>
+        </div>
+      `;
+      container.append(alertEl);
+    }
+
+    container.append(clear);
+
+    if (cumprimentoCasaCivil.length > 0) {
+      const casaCivilChart = makeClickableChart(
+        Plot.plot({
+          marginLeft: 140,
+          marginRight: 50,
+          height: Math.max(160, cumprimentoCasaCivil.length * 44 + 36),
+          style: { fontFamily: "var(--font-sans, IBM Plex Sans, sans-serif)", fontSize: 13 },
+          x: { label: null, grid: false, axis: null },
+          y: { label: null, domain: cumprimentoCasaCivil.map(d => d.status) },
+          marks: [
+            Plot.barX(cumprimentoCasaCivil, { x: "qtd", y: "status", fill: "color", rx: 6 }),
+            Plot.text(cumprimentoCasaCivil, {
+              x: "qtd",
+              y: "status",
+              text: d => formatNumber(d.qtd),
+              dx: 6,
+              textAnchor: "start",
+              fontSize: 12,
+              fill: "#5b6470",
+            }),
+          ],
+        }),
+        cumprimentoCasaCivil,
+        "status",
+        container.value.casaCivil
+      );
+      casaCivilChart.addEventListener("input", () => setCasaCivil(casaCivilChart.value));
+      container.append(casaCivilChart);
+    }
+
+    if (cascadeBase.length === 0) {
+      container.append(makeFlowElement("p", "casc-empty", "Nenhum contrato corresponde à seleção atual na análise de licitação."));
+      return;
+    }
+
+    const aguardandoPublicacao = cascadeBase.filter(d => !d.dt_pub_licitacao);
+    const publicadas = cascadeBase.filter(d => d.dt_pub_licitacao);
+    container.append(
+      makeFlowLevel(
+        `${cascadeBase.length.toLocaleString("pt-BR")} contratos com retirada de suspensiva`,
+        "por etapa da publicação da licitação",
+        [
+          { label: "Aguardando publicação", qtd: aguardandoPublicacao.length, color: LICITACAO_CORES["Aguardando publicação"] },
+          { label: "Publicada", qtd: publicadas.length, color: LICITACAO_CORES["Publicada"] },
+        ],
+        cascadeBase.length,
+        { filterKey: "pub_etapa", selectedValue: container.value.flow.pub_etapa, onSelect: setFlow }
+      )
+    );
+
+    if (aguardandoPublicacao.length > 0) {
+      container.append(makeFlowConnector("publicação até 120 dias após a retirada da suspensiva"));
+      container.append(
+        makeFlowLevel(
+          `${aguardandoPublicacao.length.toLocaleString("pt-BR")} contratos aguardando publicação`,
+          "por urgência do prazo de publicação",
+          LICITACAO_PRAZO_ORDER.map(label => ({
+            label,
+            qtd: aguardandoPublicacao.filter(d => d.status_pub_licitacao === label).length,
+            color: LICITACAO_CORES[label],
+          })),
+          aguardandoPublicacao.length,
+          { filterKey: "pub_prazo", selectedValue: container.value.flow.pub_prazo, onSelect: setFlow }
+        )
+      );
+    }
+
+    if (publicadas.length > 0) {
+      const homologacaoPendente = publicadas.filter(d => !d.dt_homolog_licitacao);
+      const homologadas = publicadas.filter(d => d.dt_homolog_licitacao);
+
+      container.append(makeFlowConnector("homologação até 120 dias após a publicação"));
+      container.append(
+        makeFlowLevel(
+          `${publicadas.length.toLocaleString("pt-BR")} contratos com licitação publicada`,
+          "por etapa da homologação",
+          [
+            { label: "Homologação pendente", qtd: homologacaoPendente.length, color: LICITACAO_CORES["Homologação pendente"] },
+            { label: "Homologada", qtd: homologadas.length, color: LICITACAO_CORES["Homologada"] },
+          ],
+          publicadas.length,
+          { filterKey: "homolog_etapa", selectedValue: container.value.flow.homolog_etapa, onSelect: setFlow }
+        )
+      );
+
+      if (homologacaoPendente.length > 0) {
+        container.append(makeFlowConnector("homologação pendente por urgência do prazo"));
+        container.append(
+          makeFlowLevel(
+            `${homologacaoPendente.length.toLocaleString("pt-BR")} contratos aguardando homologação`,
+            "por urgência do prazo de homologação",
+            LICITACAO_PRAZO_ORDER.map(label => ({
+              label,
+              qtd: homologacaoPendente.filter(d => d.status_homolog_licitacao === label).length,
+              color: LICITACAO_CORES[label],
+            })),
+            homologacaoPendente.length,
+            { filterKey: "homolog_prazo", selectedValue: container.value.flow.homolog_prazo, onSelect: setFlow }
+          )
+        );
+      }
+    }
+  }
+
+  render();
+  return container;
+}
+
 function matchesCasaCivilSelection(d, selection = null) {
   return selection == null || d.status_regra_casa_civil === selection;
 }
@@ -844,11 +1301,22 @@ function matchesCasaCivilSelection(d, selection = null) {
 function matchesInicioObraSelection(d, selection = null) {
   return selection == null || d.status_inicio_obra === selection;
 }
+
+function normalizeDrillSelection(selection) {
+  if (selection == null) return null;
+  if (typeof selection === "string") return selection;
+  if (Array.isArray(selection)) return selection.length === 1 ? selection[0] : null;
+  if (typeof selection === "object") {
+    if (typeof selection.value === "string") return selection.value;
+    if (typeof selection.group === "string") return selection.group;
+  }
+  return null;
+}
 ```
 
 ```js
 // ── data final: baseData + seleção dos gráficos
-const data = baseData.filter(d =>
+const dataBaseSemGeo = baseData.filter(d =>
   (selectedSituacao == null || d.situacao === selectedSituacao) &&
   (selectedSuspensiva == null || d.situacao_suspensiva === selectedSuspensiva)
 );
@@ -860,38 +1328,45 @@ const previousBaseData = previousRawData.filter(d =>
   matchesAnoFilter(d)
 );
 
-const previousData = previousBaseData.filter(d =>
+const previousDataSemGeo = previousBaseData.filter(d =>
   (selectedSituacao == null || d.situacao === selectedSituacao) &&
   (selectedSuspensiva == null || d.situacao_suspensiva === selectedSuspensiva)
 );
+
+const secretariaDrillField = secretariaSelecionada.length === 1 ? "modalidade" : "secretaria";
+const secretariaDrillLabel = secretariaDrillField === "secretaria" ? "Secretaria" : "Modalidade";
+const secretariaDrillMarginLeft = secretariaDrillField === "secretaria" ? 90 : 240;
+```
+
+```js
+const selectedSecretariaDrill = view(renderSecretariaOverview(
+  dataBaseSemGeo,
+  secretariaDrillField,
+  secretariaDrillLabel,
+  secretariaDrillMarginLeft
+));
+```
+
+```js
+const secretariaDrillSelection = normalizeDrillSelection(selectedSecretariaDrill);
+
+const dataSemGeo = dataBaseSemGeo.filter(d =>
+  secretariaDrillSelection == null || d[secretariaDrillField] === secretariaDrillSelection
+);
+const previousData = previousDataSemGeo.filter(d =>
+  secretariaDrillSelection == null || d[secretariaDrillField] === secretariaDrillSelection
+);
+const data = dataSemGeo;
 
 const total = data.length;
 const comSuspensiva = data.filter(d => d.situacao === "Contratado - Suspensiva").length;
 const semSuspensiva = data.filter(d => d.situacao === "Contratado - Normal").length;
 const vlrTotal = data.reduce((s, d) => s + d.vlr_repasse, 0);
-const previousTotal = previousData.length;
+const previousTotal = previousDataSemGeo.length;
 const previousComSuspensiva = previousData.filter(d => d.situacao === "Contratado - Suspensiva").length;
 const previousSemSuspensiva = previousData.filter(d => d.situacao === "Contratado - Normal").length;
 const previousVlrTotal = previousData.reduce((s, d) => s + d.vlr_repasse, 0);
-const pctSuspensiva = total > 0 ? comSuspensiva / total : 0;
-const secretariaDrillField = secretariaSelecionada.length === 1 ? "modalidade" : "secretaria";
-const secretariaDrillLabel = secretariaDrillField === "secretaria" ? "Secretaria" : "Modalidade";
-const secretariaDrillMarginLeft = secretariaDrillField === "secretaria" ? 90 : 240;
-const secretariaDrillData = [...new Set(
-  data
-    .map(d => d[secretariaDrillField])
-    .filter(Boolean)
-)]
-  .map((group) => {
-    const rows = data.filter(d => d[secretariaDrillField] === group);
-    return {
-      group,
-      contratos: rows.length,
-      vlr_repasse: rows.reduce((sum, d) => sum + d.vlr_repasse, 0),
-    };
-  })
-  .filter(d => d.contratos > 0)
-  .sort((a, b) => b.contratos - a.contratos || b.vlr_repasse - a.vlr_repasse);
+const pctSuspensiva = data.length > 0 ? comSuspensiva / data.length : 0;
 ```
 
 ```js
@@ -902,87 +1377,11 @@ display(metricGrid([
     delta: buildMetricDelta(total, previousTotal),
     tone: "default"
   },
-  { label: "Com suspensiva", value: formatNumber(comSuspensiva), detail: formatPercent(pctSuspensiva) + " do total", delta: buildMetricDelta(comSuspensiva, previousComSuspensiva), tone: "gold" },
-  { label: "Sem suspensiva (Normal)", value: formatNumber(semSuspensiva), detail: formatPercent(total > 0 ? semSuspensiva / total : 0) + " do total", delta: buildMetricDelta(semSuspensiva, previousSemSuspensiva), tone: "green" },
+  { label: "Com suspensiva", value: formatNumber(comSuspensiva), detail: formatPercent(pctSuspensiva) + " do recorte do gráfico", delta: buildMetricDelta(comSuspensiva, previousComSuspensiva), tone: "gold" },
+  { label: "Sem suspensiva (Normal)", value: formatNumber(semSuspensiva), detail: formatPercent(data.length > 0 ? semSuspensiva / data.length : 0) + " do recorte do gráfico", delta: buildMetricDelta(semSuspensiva, previousSemSuspensiva), tone: "green" },
   { label: "Valor total de repasse", value: formatCurrencyCompact(vlrTotal), delta: buildMetricDelta(vlrTotal, previousVlrTotal, formatCurrencyDelta), tone: "blue" },
 ]));
 ```
-
-<div class="grid-two">
-
-<div class="card">
-
-## Contratos por ${secretariaDrillLabel}
-
-<p>Distribuição da quantidade de contratos na seleção atual</p>
-
-```js
-display(Plot.plot({
-  marginLeft: secretariaDrillMarginLeft,
-  marginRight: 90,
-  height: Math.max(180, secretariaDrillData.length * 52 + 40),
-  style: { fontFamily: "var(--font-sans, IBM Plex Sans, sans-serif)", fontSize: 13 },
-  x: { label: null, grid: false, axis: null },
-  y: { label: null, domain: secretariaDrillData.map(d => d.group) },
-  marks: [
-    Plot.barX(secretariaDrillData, {
-      x: "contratos",
-      y: "group",
-      fill: "#356c8c",
-      rx: 6,
-    }),
-    Plot.text(secretariaDrillData, {
-      x: "contratos",
-      y: "group",
-      text: d => formatNumber(d.contratos),
-      dx: 6,
-      textAnchor: "start",
-      fontSize: 12,
-      fill: "#5b6470",
-    }),
-  ],
-}));
-```
-
-</div>
-
-<div class="card">
-
-## Repasse por ${secretariaDrillLabel}
-
-<p>Distribuição do valor total de repasse na seleção atual</p>
-
-```js
-display(Plot.plot({
-  marginLeft: secretariaDrillMarginLeft,
-  marginRight: 110,
-  height: Math.max(180, secretariaDrillData.length * 52 + 40),
-  style: { fontFamily: "var(--font-sans, IBM Plex Sans, sans-serif)", fontSize: 13 },
-  x: { label: null, grid: false, axis: null },
-  y: { label: null, domain: secretariaDrillData.map(d => d.group) },
-  marks: [
-    Plot.barX(secretariaDrillData, {
-      x: "vlr_repasse",
-      y: "group",
-      fill: "#0f766e",
-      rx: 6,
-    }),
-    Plot.text(secretariaDrillData, {
-      x: "vlr_repasse",
-      y: "group",
-      text: d => formatCurrencyCompact(d.vlr_repasse),
-      dx: 6,
-      textAnchor: "start",
-      fontSize: 12,
-      fill: "#5b6470",
-    }),
-  ],
-}));
-```
-
-</div>
-
-</div>
 
 <div class="grid-two">
 
@@ -998,7 +1397,7 @@ const selectedSituacao = view(makeClickableChart(
     marginLeft: 220, marginRight: 50,
     height: Math.max(180, bySituacao.length * 44 + 40),
     style: { fontFamily: "var(--font-sans, IBM Plex Sans, sans-serif)", fontSize: 13 },
-    x: { label: "Quantidade", grid: true },
+    x: { label: null, grid: false, axis: null },
     y: { label: null, domain: bySituacao.map(d => d.situacao) },
     marks: [
       Plot.barX(bySituacao, {
@@ -1030,7 +1429,7 @@ const selectedSuspensiva = view(makeClickableChart(
     marginLeft: 230, marginRight: 50,
     height: Math.max(180, bySuspensiva.length * 44 + 40),
     style: { fontFamily: "var(--font-sans, IBM Plex Sans, sans-serif)", fontSize: 13 },
-    x: { label: "Quantidade", grid: true },
+    x: { label: null, grid: false, axis: null },
     y: { label: null, domain: bySuspensiva.map(d => d.situacao_suspensiva) },
     marks: [
       Plot.barX(bySuspensiva, {
@@ -1052,6 +1451,23 @@ const selectedSuspensiva = view(makeClickableChart(
 
 </div>
 
+<div class="card">
+
+<h2>Distribuição Territorial <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Recorte territorial de todos os contratos atualmente visíveis no painel.<ul><li><strong>Região</strong> — considera todos os contratos após os filtros do topo e dos gráficos gerais</li><li><strong>UF</strong> — abre quando uma região é selecionada</li><li>As seleções passam a valer para os blocos analíticos seguintes</li></ul></span></span></h2>
+
+<p>Clique em uma região para abrir os estados; esse recorte passa a valer para os blocos abaixo.</p>
+
+```js
+const selectedGeo = view(makeGeoCascade(dataSemGeo));
+```
+
+</div>
+
+```js
+const geoScopedData = data.filter(d => matchesGeoSelection(d, selectedGeo));
+const geoScopedPreviousData = previousData.filter(d => matchesGeoSelection(d, selectedGeo));
+```
+
 <div class="card card--suspensiva-analysis">
 
 <h2>Análise de Suspensivas — Quebra por etapas <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Cascata dos contratos com suspensiva ativa, classificados por urgência do vencimento.<ul><li><strong>Vencida</strong> — data de vencimento da suspensiva já passou</li><li><strong>Próximos 30 dias</strong> — vence em até 30 dias corridos</li><li><strong>31–90 dias</strong> — vence entre 31 e 90 dias</li><li><strong>Mais de 90 dias</strong> — vence após 90 dias</li><li><strong>Sem data</strong> — sem data de vencimento registrada</li></ul></span></span></h2>
@@ -1059,7 +1475,7 @@ const selectedSuspensiva = view(makeClickableChart(
 <p>Cascata proporcional: do total à urgência de vencimento</p>
 
 ```js
-const comSuspData = data.filter(d => d.situacao === "Contratado - Suspensiva");
+const comSuspData = geoScopedData.filter(d => d.situacao === "Contratado - Suspensiva");
 const pendentes = comSuspData.filter(d => !d.dt_retirada_suspensiva);
 const vencida = pendentes.filter(d => d.urgencia_suspensiva === "Vencida").length;
 const prox30  = pendentes.filter(d => d.urgencia_suspensiva === "Próximos 30 dias").length;
@@ -1080,7 +1496,7 @@ if (vencida > 0 || prox30 > 0) {
 display(alertEl);
 }
 
-const selectedCascade = view(cascadeChart(data));
+const selectedCascade = view(cascadeChart(geoScopedData));
 ```
 
 </div>
@@ -1092,104 +1508,9 @@ const selectedCascade = view(cascadeChart(data));
 <p>Publicação até 120 dias após a retirada da suspensiva; homologação até 120 dias após a publicação da licitação.</p>
 
 ```js
-const licitacaoBase = data.filter(d => d.dt_retirada_suspensiva && d.situacao !== "Cancelado ou Distratado");
-const aguardandoPublicacao = licitacaoBase.filter(d => !d.dt_pub_licitacao);
-const publicacaoVencida = aguardandoPublicacao.filter(d => d.status_pub_licitacao === "Vencida").length;
-const publicacaoProx30 = aguardandoPublicacao.filter(d => d.status_pub_licitacao === "Próximos 30 dias").length;
-const publicadas = licitacaoBase.filter(d => d.dt_pub_licitacao);
-const homologacaoPendente = publicadas.filter(d => !d.dt_homolog_licitacao);
-const homologacaoVencida = homologacaoPendente.filter(d => d.status_homolog_licitacao === "Vencida").length;
-const homologacaoProx30 = homologacaoPendente.filter(d => d.status_homolog_licitacao === "Próximos 30 dias").length;
-const previousLicitacaoBase = previousData.filter(d => d.dt_retirada_suspensiva && d.situacao !== "Cancelado ou Distratado");
-const previousAguardandoPublicacao = previousLicitacaoBase.filter(d => !d.dt_pub_licitacao);
-const previousPublicacaoVencida = previousAguardandoPublicacao.filter(d => d.status_pub_licitacao === "Vencida").length;
-const previousPublicacaoProx30 = previousAguardandoPublicacao.filter(d => d.status_pub_licitacao === "Próximos 30 dias").length;
-const previousPublicadas = previousLicitacaoBase.filter(d => d.dt_pub_licitacao);
-const previousHomologacaoPendente = previousPublicadas.filter(d => !d.dt_homolog_licitacao);
-const previousHomologacaoVencida = previousHomologacaoPendente.filter(d => d.status_homolog_licitacao === "Vencida").length;
-const previousHomologacaoProx30 = previousHomologacaoPendente.filter(d => d.status_homolog_licitacao === "Próximos 30 dias").length;
-const licitacaoSelecionada = licitacaoBase.filter(d => matchesLicitacaoSelection(d, selectedLicitacao));
-const previousLicitacaoSelecionada = previousLicitacaoBase.filter(d => matchesLicitacaoSelection(d, selectedLicitacao));
-const valorLicitacaoSelecionada = licitacaoSelecionada.reduce((sum, d) => sum + d.vlr_repasse, 0);
-const previousValorLicitacaoSelecionada = previousLicitacaoSelecionada.reduce((sum, d) => sum + d.vlr_repasse, 0);
-const cumprimentoCasaCivil = [
-  { status: "Cumpriu", qtd: licitacaoBase.filter(d => d.status_regra_casa_civil === "Cumpriu").length, color: LICITACAO_CORES["Cumpriu"] },
-  { status: "Não cumpriu", qtd: licitacaoBase.filter(d => d.status_regra_casa_civil === "Não cumpriu").length, color: LICITACAO_CORES["Não cumpriu"] },
-  { status: "Fora do escopo", qtd: data.filter(d => d.status_regra_casa_civil === "Fora do escopo").length, color: LICITACAO_CORES["Fora do escopo"] },
-].filter(d => d.qtd > 0);
-
-display(metricGrid([
-  { label: "Com retirada de suspensiva", value: formatNumber(licitacaoBase.length), delta: buildMetricDelta(licitacaoBase.length, previousLicitacaoBase.length), tone: "default" },
-  {
-    label: "Valor dos contratos",
-    value: formatCurrencyCompact(valorLicitacaoSelecionada),
-    detail: `${formatNumber(licitacaoSelecionada.length)} contrato${licitacaoSelecionada.length === 1 ? "" : "s"} no recorte atual da licitação`,
-    delta: buildMetricDelta(valorLicitacaoSelecionada, previousValorLicitacaoSelecionada, formatCurrencyDelta),
-    tone: "blue",
-  },
-  { label: "Aguardando publicação", value: formatNumber(aguardandoPublicacao.length), detail: formatPercent(licitacaoBase.length > 0 ? aguardandoPublicacao.length / licitacaoBase.length : 0) + " com retirada de suspensiva", delta: buildMetricDelta(aguardandoPublicacao.length, previousAguardandoPublicacao.length), tone: "gold" },
-  { label: "Publicação vencida", value: formatNumber(publicacaoVencida), detail: "prazo de 120 dias após retirada da suspensiva", delta: buildMetricDelta(publicacaoVencida, previousPublicacaoVencida), tone: "red" },
-  { label: "Publicação nos próximos 30 dias", value: formatNumber(publicacaoProx30), delta: buildMetricDelta(publicacaoProx30, previousPublicacaoProx30), tone: "gold" },
-  { label: "Homologação vencida", value: formatNumber(homologacaoVencida), detail: "prazo de 120 dias após publicação", delta: buildMetricDelta(homologacaoVencida, previousHomologacaoVencida), tone: "red" },
-  { label: "Homologação nos próximos 30 dias", value: formatNumber(homologacaoProx30), delta: buildMetricDelta(homologacaoProx30, previousHomologacaoProx30), tone: "gold" },
-]));
-```
-
-<p>Cumprimento do prazo da Casa Civil para publicação do edital, conclusão da licitação e emissão da ordem de serviço até 31/03/2026.</p>
-
-```js
-const selectedCasaCivil = view(makeClickableChart(
-  Plot.plot({
-    marginLeft: 140,
-    marginRight: 50,
-    height: Math.max(160, cumprimentoCasaCivil.length * 44 + 36),
-    style: { fontFamily: "var(--font-sans, IBM Plex Sans, sans-serif)", fontSize: 13 },
-    x: { label: "Contratos", grid: true },
-    y: { label: null, domain: cumprimentoCasaCivil.map(d => d.status) },
-    marks: [
-      Plot.barX(cumprimentoCasaCivil, {
-        x: "qtd",
-        y: "status",
-        fill: "color",
-        rx: 6,
-      }),
-      Plot.text(cumprimentoCasaCivil, {
-        x: "qtd",
-        y: "status",
-        text: d => formatNumber(d.qtd),
-        dx: 6,
-        textAnchor: "start",
-        fontSize: 12,
-        fill: "#5b6470",
-      }),
-    ],
-  }),
-  cumprimentoCasaCivil, "status"
-));
-```
-
-```js
-if (publicacaoVencida > 0 || publicacaoProx30 > 0 || homologacaoVencida > 0 || homologacaoProx30 > 0) {
-  const alertEl = document.createElement("div");
-  alertEl.className = "urgency-alert";
-  alertEl.innerHTML = `
-    <div class="urgency-alert__icon">⚠️</div>
-    <div class="urgency-alert__body">
-      <div class="urgency-alert__title">Atenção: licitações com prazo crítico</div>
-      <div class="urgency-alert__text">
-        ${publicacaoVencida > 0 ? `<strong>${formatNumber(publicacaoVencida)}</strong> contrato${publicacaoVencida > 1 ? "s" : ""} com <strong>publicação vencida</strong>. ` : ""}
-        ${publicacaoProx30 > 0 ? `<strong>${formatNumber(publicacaoProx30)}</strong> contrato${publicacaoProx30 > 1 ? "s" : ""} com publicação nos <strong>próximos 30 dias</strong>. ` : ""}
-        ${homologacaoVencida > 0 ? `<strong>${formatNumber(homologacaoVencida)}</strong> contrato${homologacaoVencida > 1 ? "s" : ""} com <strong>homologação vencida</strong>. ` : ""}
-        ${homologacaoProx30 > 0 ? `<strong>${formatNumber(homologacaoProx30)}</strong> contrato${homologacaoProx30 > 1 ? "s" : ""} com homologação nos <strong>próximos 30 dias</strong>.` : ""}
-      </div>
-    </div>
-  `;
-  display(alertEl);
-}
-```
-
-```js
-const selectedLicitacao = view(renderLicitacaoFlow(data));
+const selectedLicitacaoPanel = view(renderLicitacaoExplorer(geoScopedData, geoScopedPreviousData));
+const selectedLicitacao = selectedLicitacaoPanel.flow;
+const selectedCasaCivil = selectedLicitacaoPanel.casaCivil;
 ```
 
 </div>
@@ -1201,13 +1522,13 @@ const selectedLicitacao = view(renderLicitacaoFlow(data));
 <p>Monitoramento do prazo de início da obra: até 10 dias úteis após a data de AIO.</p>
 
 ```js
-const inicioObraBase = data.filter(d => d.dt_aio && d.situacao !== "Cancelado ou Distratado");
+const inicioObraBase = geoScopedData.filter(d => d.dt_aio && d.situacao !== "Cancelado ou Distratado");
 const inicioPrazoVencido = inicioObraBase.filter(d => d.status_inicio_obra === "Prazo vencido").length;
 const inicioProx10 = inicioObraBase.filter(d => d.status_inicio_obra === "Próximos 10 dias úteis").length;
 const inicioNoPrazo = inicioObraBase.filter(d => d.status_inicio_obra === "No prazo").length;
 const iniciadaNoPrazo = inicioObraBase.filter(d => d.status_inicio_obra === "Iniciada no prazo").length;
 const iniciadaEmAtraso = inicioObraBase.filter(d => d.status_inicio_obra === "Iniciada em atraso").length;
-const previousInicioObraBase = previousData.filter(d => d.dt_aio && d.situacao !== "Cancelado ou Distratado");
+const previousInicioObraBase = geoScopedPreviousData.filter(d => d.dt_aio && d.situacao !== "Cancelado ou Distratado");
 const previousInicioPrazoVencido = previousInicioObraBase.filter(d => d.status_inicio_obra === "Prazo vencido").length;
 const previousInicioProx10 = previousInicioObraBase.filter(d => d.status_inicio_obra === "Próximos 10 dias úteis").length;
 const previousInicioNoPrazo = previousInicioObraBase.filter(d => d.status_inicio_obra === "No prazo").length;
@@ -1229,7 +1550,7 @@ const selectedInicioObra = view(makeClickableChart(
     marginRight: 50,
     height: Math.max(170, inicioObraChart.length * 44 + 36),
     style: { fontFamily: "var(--font-sans, IBM Plex Sans, sans-serif)", fontSize: 13 },
-    x: { label: "Contratos", grid: true },
+    x: { label: null, grid: false, axis: null },
     y: { label: null, domain: inicioObraChart.map(d => d.status) },
     marks: [
       Plot.barX(inicioObraChart, {
@@ -1254,13 +1575,24 @@ const selectedInicioObra = view(makeClickableChart(
 ```
 
 ```js
+const countInicioObraStatus = (rows, status) => rows.filter(d => d.status_inicio_obra === status).length;
 const inicioObraSelecionada = inicioObraBase.filter(d => matchesInicioObraSelection(d, selectedInicioObra));
 const previousInicioObraSelecionada = previousInicioObraBase.filter(d => matchesInicioObraSelection(d, selectedInicioObra));
 const valorInicioObraSelecionada = inicioObraSelecionada.reduce((sum, d) => sum + d.vlr_repasse, 0);
 const previousValorInicioObraSelecionada = previousInicioObraSelecionada.reduce((sum, d) => sum + d.vlr_repasse, 0);
+const inicioPrazoVencidoSelecionado = countInicioObraStatus(inicioObraSelecionada, "Prazo vencido");
+const previousInicioPrazoVencidoSelecionado = countInicioObraStatus(previousInicioObraSelecionada, "Prazo vencido");
+const inicioProx10Selecionado = countInicioObraStatus(inicioObraSelecionada, "Próximos 10 dias úteis");
+const previousInicioProx10Selecionado = countInicioObraStatus(previousInicioObraSelecionada, "Próximos 10 dias úteis");
+const inicioNoPrazoSelecionado = countInicioObraStatus(inicioObraSelecionada, "No prazo");
+const previousInicioNoPrazoSelecionado = countInicioObraStatus(previousInicioObraSelecionada, "No prazo");
+const iniciadaNoPrazoSelecionado = countInicioObraStatus(inicioObraSelecionada, "Iniciada no prazo");
+const previousIniciadaNoPrazoSelecionado = countInicioObraStatus(previousInicioObraSelecionada, "Iniciada no prazo");
+const iniciadaEmAtrasoSelecionado = countInicioObraStatus(inicioObraSelecionada, "Iniciada em atraso");
+const previousIniciadaEmAtrasoSelecionado = countInicioObraStatus(previousInicioObraSelecionada, "Iniciada em atraso");
 
 display(metricGrid([
-  { label: "Com AIO", value: formatNumber(inicioObraBase.length), delta: buildMetricDelta(inicioObraBase.length, previousInicioObraBase.length), tone: "default" },
+  { label: "Com AIO", value: formatNumber(inicioObraSelecionada.length), delta: buildMetricDelta(inicioObraSelecionada.length, previousInicioObraSelecionada.length), tone: "default" },
   {
     label: "Valor dos contratos",
     value: formatCurrencyCompact(valorInicioObraSelecionada),
@@ -1268,16 +1600,16 @@ display(metricGrid([
     delta: buildMetricDelta(valorInicioObraSelecionada, previousValorInicioObraSelecionada, formatCurrencyDelta),
     tone: "blue",
   },
-  { label: "Iniciada no prazo", value: formatNumber(iniciadaNoPrazo), delta: buildMetricDelta(iniciadaNoPrazo, previousIniciadaNoPrazo), tone: "green" },
-  { label: "Iniciada em atraso", value: formatNumber(iniciadaEmAtraso), delta: buildMetricDelta(iniciadaEmAtraso, previousIniciadaEmAtraso), tone: "red" },
-  { label: "Prazo vencido", value: formatNumber(inicioPrazoVencido), delta: buildMetricDelta(inicioPrazoVencido, previousInicioPrazoVencido), tone: "red" },
-  { label: "Próximos 10 dias úteis", value: formatNumber(inicioProx10), delta: buildMetricDelta(inicioProx10, previousInicioProx10), tone: "gold" },
-  { label: "No prazo", value: formatNumber(inicioNoPrazo), delta: buildMetricDelta(inicioNoPrazo, previousInicioNoPrazo), tone: "blue" },
+  { label: "Iniciada no prazo", value: formatNumber(iniciadaNoPrazoSelecionado), delta: buildMetricDelta(iniciadaNoPrazoSelecionado, previousIniciadaNoPrazoSelecionado), tone: "green" },
+  { label: "Iniciada em atraso", value: formatNumber(iniciadaEmAtrasoSelecionado), delta: buildMetricDelta(iniciadaEmAtrasoSelecionado, previousIniciadaEmAtrasoSelecionado), tone: "red" },
+  { label: "Prazo vencido", value: formatNumber(inicioPrazoVencidoSelecionado), delta: buildMetricDelta(inicioPrazoVencidoSelecionado, previousInicioPrazoVencidoSelecionado), tone: "red" },
+  { label: "Próximos 10 dias úteis", value: formatNumber(inicioProx10Selecionado), delta: buildMetricDelta(inicioProx10Selecionado, previousInicioProx10Selecionado), tone: "gold" },
+  { label: "No prazo", value: formatNumber(inicioNoPrazoSelecionado), delta: buildMetricDelta(inicioNoPrazoSelecionado, previousInicioNoPrazoSelecionado), tone: "blue" },
 ]));
 ```
 
 ```js
-if (inicioPrazoVencido > 0 || inicioProx10 > 0) {
+if (inicioPrazoVencidoSelecionado > 0 || inicioProx10Selecionado > 0) {
   const alertEl = document.createElement("div");
   alertEl.className = "urgency-alert";
   alertEl.innerHTML = `
@@ -1285,8 +1617,8 @@ if (inicioPrazoVencido > 0 || inicioProx10 > 0) {
     <div class="urgency-alert__body">
       <div class="urgency-alert__title">Atenção: início de obra com prazo crítico</div>
       <div class="urgency-alert__text">
-        ${inicioPrazoVencido > 0 ? `<strong>${formatNumber(inicioPrazoVencido)}</strong> contrato${inicioPrazoVencido > 1 ? "s" : ""} com <strong>prazo vencido</strong> para início da obra. ` : ""}
-        ${inicioProx10 > 0 ? `<strong>${formatNumber(inicioProx10)}</strong> contrato${inicioProx10 > 1 ? "s" : ""} nos <strong>próximos 10 dias úteis</strong> para início da obra.` : ""}
+        ${inicioPrazoVencidoSelecionado > 0 ? `<strong>${formatNumber(inicioPrazoVencidoSelecionado)}</strong> contrato${inicioPrazoVencidoSelecionado > 1 ? "s" : ""} com <strong>prazo vencido</strong> para início da obra. ` : ""}
+        ${inicioProx10Selecionado > 0 ? `<strong>${formatNumber(inicioProx10Selecionado)}</strong> contrato${inicioProx10Selecionado > 1 ? "s" : ""} nos <strong>próximos 10 dias úteis</strong> para início da obra.` : ""}
       </div>
     </div>
   `;
@@ -1302,7 +1634,7 @@ if (inicioPrazoVencido > 0 || inicioProx10 > 0) {
 
 ```js
 const PAGE_SIZE = 50;
-const tableData = data.filter(d =>
+const tableData = geoScopedData.filter(d =>
   matchesCascadeSelection(d, selectedCascade) &&
   matchesLicitacaoSelection(d, selectedLicitacao) &&
   matchesCasaCivilSelection(d, selectedCasaCivil) &&
