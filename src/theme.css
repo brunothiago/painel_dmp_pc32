@@ -3499,6 +3499,23 @@ body {
     margin-bottom: 0.9rem;
 }
 
+.clear-filters-btn {
+    appearance: none;
+    border: 1px solid rgba(220,38,38,0.22);
+    background: #fef2f2;
+    color: #dc2626;
+    border-radius: 999px;
+    padding: 0.55rem 0.9rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 0;
+}
+
+.clear-filters-btn:hover {
+    background: #fee2e2;
+}
+
 .export-btn {
     appearance: none;
     border: 1px solid rgba(15,118,110,0.22);

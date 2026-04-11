@@ -134,9 +134,10 @@ export function renderBaseDataTable({
   tableScroll.append(table);
 
   const summary = html`<p class="metric-detail datatable-summary"></p>`;
+  const clearFiltersBtn = html`<button class="clear-filters-btn" type="button" style="display:none;">Limpar filtros</button>`;
   const exportBtn = html`<button class="export-btn" type="button"></button>`;
   const controls = html`<div class="table-controls table-controls--top"></div>`;
-  controls.append(summary, exportBtn);
+  controls.append(summary, clearFiltersBtn, exportBtn);
   const dtTopBar = html`<div class="datatable-toolbar datatable-toolbar--top"></div>`;
   const dtBottomBar = html`<div class="datatable-toolbar datatable-toolbar--bottom"></div>`;
 
@@ -227,12 +228,33 @@ export function renderBaseDataTable({
   if (dtInfo) dtBottomBar.append(dtInfo);
   if (dtPaginate) dtBottomBar.append(dtPaginate);
 
+  function hasActiveFilters() {
+    const globalSearch = dataTable.search();
+    if (globalSearch) return true;
+    let hasColumn = false;
+    dataTable.columns().every(function () {
+      if (this.search()) hasColumn = true;
+    });
+    return hasColumn;
+  }
+
   function updateControls() {
     const visibleRows = dataTable.rows({search: "applied"}).data().toArray();
     summary.textContent = `${visibleRows.length.toLocaleString("pt-BR")} registro${visibleRows.length === 1 ? "" : "s"} encontrado${visibleRows.length === 1 ? "" : "s"} na tabela`;
     exportBtn.textContent = `Exportar tabela (${visibleRows.length.toLocaleString("pt-BR")})`;
     exportBtn.disabled = visibleRows.length === 0;
+    clearFiltersBtn.style.display = hasActiveFilters() ? "" : "none";
   }
+
+  clearFiltersBtn.addEventListener("click", () => {
+    dataTable.search("");
+    dataTable.columns().search("");
+    filterRow.querySelectorAll("select").forEach((s) => (s.value = ""));
+    filterRow.querySelectorAll("input").forEach((i) => (i.value = ""));
+    const globalInput = dtWrapper?.querySelector(".dt-search input, .dataTables_filter input");
+    if (globalInput) globalInput.value = "";
+    dataTable.draw();
+  });
 
   exportBtn.addEventListener("click", () => {
     const visibleRows = dataTable.rows({search: "applied"}).data().toArray().map((row) => row.__source);
