@@ -11,7 +11,7 @@ import {renderBaseDataTable} from "./components/base-data-table.js";
 import {metricGrid} from "./components/cards.js";
 import {cascadeChart, matchesCascadeSelection} from "./components/cascade-chart.js";
 import {formatNumber, formatCurrencyCompact, formatPercent, formatDate} from "./lib/formatters.js";
-import {SITUACAO_CORES, SUSPENSIVA_CORES, SITUACAO_ORDER, SUSPENSIVA_ORDER, LICITACAO_CORES, INICIO_OBRA_CORES} from "./lib/theme.js";
+import {PALETTE, SITUACAO_CORES, SUSPENSIVA_CORES, SITUACAO_ORDER, SUSPENSIVA_ORDER, LICITACAO_CORES, INICIO_OBRA_CORES} from "./lib/theme.js";
 
 const rawText = await FileAttachment("data/base_pc_32.csv").text();
 const previousRawText = await FileAttachment("data/base_pc_32_previous.csv").text();
@@ -798,6 +798,21 @@ function makeGeoCascade(rows) {
       wrap.dispatchEvent(new Event("input", {bubbles: true}));
     });
     wrap.append(clear);
+    const active = makeCascadeActiveChips(
+      wrap.value,
+      {regiao: "Região", uf: "UF"},
+      {
+        regiao: colorForGeoChip,
+        uf: colorForGeoChip,
+      },
+      (key) => {
+        if (key === "regiao") wrap.value = {regiao: null, uf: null};
+        else wrap.value = {...wrap.value, [key]: null};
+        render();
+        wrap.dispatchEvent(new Event("input", {bubbles: true}));
+      }
+    );
+    if (active) wrap.append(active);
 
     const regiaoData = buildGeoBreakdown(rows, "regiao");
     const total = rows.length;
@@ -860,6 +875,44 @@ function makeFlowElement(tag, className, text) {
   if (className) node.className = className;
   if (text !== undefined) node.textContent = text;
   return node;
+}
+
+function hexToRgba(hex, alpha) {
+  const normalized = hex?.replace("#", "");
+  if (!normalized || normalized.length !== 6) return `rgba(53,108,140,${alpha})`;
+  const int = Number.parseInt(normalized, 16);
+  const r = (int >> 16) & 255;
+  const g = (int >> 8) & 255;
+  const b = int & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function applyActiveChipColor(chip, color) {
+  chip.style.setProperty("--chip-border", hexToRgba(color, 0.28));
+  chip.style.setProperty("--chip-bg", hexToRgba(color, 0.12));
+  chip.style.setProperty("--chip-bg-hover", hexToRgba(color, 0.18));
+  chip.style.setProperty("--chip-fg", color);
+}
+
+function colorForGeoChip(label) {
+  const direct = REGIAO_COLORS[label];
+  if (direct) return direct;
+  const hash = [...String(label)].reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return GEO_FALLBACK_COLORS[hash % GEO_FALLBACK_COLORS.length];
+}
+
+function makeCascadeActiveChips(values, labels, colorByKey, onClear) {
+  const entries = Object.entries(values).filter(([, value]) => value != null);
+  if (entries.length === 0) return null;
+  const wrap = makeFlowElement("div", "casc-active");
+  for (const [key, value] of entries) {
+    const chip = makeFlowElement("button", "casc-active__chip", `${labels[key] ?? key}: ${value} ×`);
+    chip.type = "button";
+    applyActiveChipColor(chip, colorByKey[key]?.(value) ?? PALETTE.blue);
+    chip.addEventListener("click", () => onClear(key));
+    wrap.append(chip);
+  }
+  return wrap;
 }
 
 function makeFlowLevel(title, subtitle, items, total, options = {}) {
@@ -991,6 +1044,37 @@ function renderLicitacaoExplorer(data, previousData) {
   function render() {
     container.innerHTML = "";
     clear.hidden = !Object.values(container.value.flow).some(Boolean) && container.value.casaCivil == null;
+    container.append(clear);
+    const active = makeCascadeActiveChips(
+      {...container.value.flow, casaCivil: container.value.casaCivil},
+      {
+        pub_etapa: "Publicação",
+        pub_prazo: "Prazo publicação",
+        homolog_etapa: "Homologação",
+        homolog_prazo: "Prazo homologação",
+        casaCivil: "Casa Civil",
+      },
+      {
+        pub_etapa: (value) => LICITACAO_CORES[value] ?? PALETTE.green,
+        pub_prazo: (value) => LICITACAO_CORES[value] ?? PALETTE.green,
+        homolog_etapa: (value) => LICITACAO_CORES[value] ?? PALETTE.green,
+        homolog_prazo: (value) => LICITACAO_CORES[value] ?? PALETTE.green,
+        casaCivil: (value) => LICITACAO_CORES[value] ?? PALETTE.green,
+      },
+      (key) => {
+        if (key === "casaCivil") {
+          container.value = {...container.value, casaCivil: null};
+        } else {
+          container.value = {
+            ...container.value,
+            flow: {...container.value.flow, [key]: null}
+          };
+        }
+        render();
+        container.dispatchEvent(new Event("input", {bubbles: true}));
+      }
+    );
+    if (active) container.append(active);
 
     const eligible = data.filter(d => d.dt_retirada_suspensiva && d.situacao !== "Cancelado ou Distratado");
     const previousEligible = previousData.filter(d => d.dt_retirada_suspensiva && d.situacao !== "Cancelado ou Distratado");
@@ -1057,8 +1141,6 @@ function renderLicitacaoExplorer(data, previousData) {
       `;
       container.append(alertEl);
     }
-
-    container.append(clear);
 
     if (cumprimentoCasaCivil.length > 0) {
       const casaCivilChart = makeClickableChart(

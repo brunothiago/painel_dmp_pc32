@@ -3578,6 +3578,30 @@ body {
     background: #ffedd5;
 }
 
+.casc-active {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.45rem;
+    margin-bottom: 0.75rem;
+}
+
+.casc-active__chip {
+    appearance: none;
+    border: 1px solid var(--chip-border, rgba(53,108,140,0.18));
+    background: var(--chip-bg, rgba(53,108,140,0.08));
+    color: var(--chip-fg, #234b63);
+    border-radius: 999px;
+    padding: 0.28rem 0.7rem;
+    font-size: 0.76rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.casc-active__chip:hover {
+    background: var(--chip-bg-hover, rgba(53,108,140,0.14));
+}
+
 .casc-level {
     display: grid;
     gap: 0.55rem;

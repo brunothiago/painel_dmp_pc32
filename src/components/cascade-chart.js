@@ -109,6 +109,44 @@ function connector(label) {
   return wrap;
 }
 
+function hexToRgba(hex, alpha) {
+  const normalized = hex?.replace("#", "");
+  if (!normalized || normalized.length !== 6) return `rgba(53,108,140,${alpha})`;
+  const int = Number.parseInt(normalized, 16);
+  const r = (int >> 16) & 255;
+  const g = (int >> 8) & 255;
+  const b = int & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function styleActiveChip(chip, color) {
+  chip.style.setProperty("--chip-border", hexToRgba(color, 0.28));
+  chip.style.setProperty("--chip-bg", hexToRgba(color, 0.12));
+  chip.style.setProperty("--chip-bg-hover", hexToRgba(color, 0.18));
+  chip.style.setProperty("--chip-fg", color);
+}
+
+function activeSelection(values, colorByKey, onClear) {
+  const entries = Object.entries(values).filter(([, value]) => value != null);
+  if (entries.length === 0) return null;
+
+  const labels = {
+    suspensiva: "Situação",
+    urgencia: "Urgência",
+  };
+
+  const wrap = el("div", "casc-active");
+  for (const [key, value] of entries) {
+    const chip = el("button", "casc-active__chip");
+    chip.type = "button";
+    chip.textContent = `${labels[key] ?? key}: ${value} ×`;
+    styleActiveChip(chip, colorByKey[key]?.(value) ?? PALETTE.blue);
+    chip.addEventListener("click", () => onClear(key));
+    wrap.append(chip);
+  }
+  return wrap;
+}
+
 export function matchesCascadeSelection(d, selection = {}) {
   return (
     d.situacao === "Contratado - Suspensiva" &&
@@ -155,6 +193,19 @@ export function cascadeChart(data) {
     container.innerHTML = "";
     clear.hidden = !Object.values(container.value).some(Boolean);
     container.append(clear);
+    const active = activeSelection(
+      container.value,
+      {
+        suspensiva: (value) => SUSPENSIVA_CORES[value] ?? PALETTE.orange,
+        urgencia: (value) => URGENCIA_CORES[value] ?? PALETTE.gold,
+      },
+      (key) => {
+        container.value = {...container.value, [key]: null};
+        render();
+        container.dispatchEvent(new Event("input", {bubbles: true}));
+      }
+    );
+    if (active) container.append(active);
 
     const filteredData = data.filter((d) => matchesCascadeSelection(d, container.value));
     const totalN1 = filteredData.length;
