@@ -1652,7 +1652,7 @@ const tableData = geoScopedData.filter(d =>
 );
 
 const exportColumns = [
-  "_diff_label", "num_convenio", "cod_tci", "secretaria", "fase", "modalidade",
+  "_diff_label", "num_convenio", "cod_tci", "secretaria", "uf", "municipio", "fase", "modalidade",
   "situacao", "situacao_suspensiva", "dt_assinatura", "dt_vencimento_suspensiva",
   "dt_retirada_suspensiva", "dt_lae", "data_limite_licitacao_casa_civil", "status_regra_casa_civil", "prazo_pub_licitacao", "status_pub_licitacao",
   "dt_pub_licitacao", "prazo_homolog_licitacao", "status_homolog_licitacao", "dt_homolog_licitacao",
@@ -1663,6 +1663,8 @@ const exportHeaders = {
   num_convenio: "Convênio",
   cod_tci: "TCI",
   secretaria: "Secretaria",
+  uf: "UF",
+  municipio: "Município",
   fase: "Fase",
   modalidade: "Modalidade",
   situacao: "Situação Contrato",
@@ -1792,6 +1794,7 @@ display(renderBaseDataTable({
   columns: activeColumns,
   headers: {
     _diff_label: "Alteração", num_convenio: "Convênio", cod_tci: "TCI", secretaria: "Secretaria",
+    uf: "UF", municipio: "Município",
     fase: "Fase", modalidade: "Modalidade", situacao: "Situação Contrato",
     situacao_suspensiva: "Situação Suspensiva",
     dt_vencimento_suspensiva: "Venc. Suspensiva", dt_retirada_suspensiva: "Retirada Suspensiva",

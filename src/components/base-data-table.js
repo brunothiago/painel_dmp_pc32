@@ -88,6 +88,7 @@ function getColumnWidth(column) {
   if (column === "num_convenio") return "92px";
   if (column === "cod_tci") return "96px";
   if (column === "secretaria") return "68px";
+  if (column === "uf") return "48px";
   if (column.startsWith("dt_") || column.startsWith("prazo_")) return "104px";
   if (column.startsWith("status_")) return "160px";
   if (column === "vlr_repasse") return "124px";
