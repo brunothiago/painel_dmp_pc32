@@ -213,6 +213,7 @@
     display: flex;
     justify-content: end;
     align-items: center;
+    gap: 0.35rem;
     font-size: 0.78rem;
     color: var(--theme-foreground-muted);
     white-space: nowrap;
