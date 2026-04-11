@@ -3117,6 +3117,27 @@ body {
     margin: 0 0 1.5rem;
 }
 
+.table-scroll {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+}
+
+.table-scroll form[class^="inputs-"][class$="-table"],
+.table-scroll form[class*=" inputs-"][class$="-table"] {
+    width: 100%;
+    min-width: 100%;
+}
+
+.table-scroll form[class^="inputs-"][class$="-table"] table,
+.table-scroll form[class*=" inputs-"][class$="-table"] table {
+    width: 100%;
+    min-width: 100%;
+    max-width: none;
+}
+
 .table-shell h2 {
     margin: 0 0 0.75rem;
     font-family: var(--font-serif);
@@ -3490,5 +3511,27 @@ body {
     }
     .grid-two {
         grid-template-columns: 1fr;
+    }
+
+    .table-shell {
+        padding: 0.9rem;
+    }
+
+    .table-scroll {
+        margin: 0 -0.15rem;
+        padding-bottom: 0.35rem;
+    }
+
+    .table-scroll form[class^="inputs-"][class$="-table"],
+    .table-scroll form[class*=" inputs-"][class$="-table"] {
+        width: max-content;
+        min-width: 100%;
+        overflow: visible;
+    }
+
+    .table-scroll form[class^="inputs-"][class$="-table"] table,
+    .table-scroll form[class*=" inputs-"][class$="-table"] table {
+        width: max-content;
+        min-width: 860px;
     }
 }

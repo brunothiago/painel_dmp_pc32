@@ -188,9 +188,14 @@ const filteredRows = alteracaoRows.filter(d =>
 
 ```js
 if (filteredRows.length > 0) {
-  display(html`<p class="metric-detail">${formatNumber(filteredRows.length)} registro${filteredRows.length > 1 ? "s" : ""} encontrado${filteredRows.length > 1 ? "s" : ""}</p>`);
+  const tableHeader = html`<div class="table-controls table-controls--top">
+    <p class="metric-detail">${formatNumber(filteredRows.length)} registro${filteredRows.length > 1 ? "s" : ""} encontrado${filteredRows.length > 1 ? "s" : ""}</p>
+  </div>`;
+  tableHeader.append(makeExportAlteracoes(filteredRows));
+  display(tableHeader);
 
-  display(Inputs.table(filteredRows, {
+  const tableScroll = html`<div class="table-scroll table-scroll--alteracoes"></div>`;
+  tableScroll.append(Inputs.table(filteredRows, {
     columns: ["data_fmt", "num_convenio", "cod_tci", "uf", "secretaria", "tipo", "campo", "anterior", "atual"],
     header: {
       data_fmt: "Data",
@@ -207,6 +212,8 @@ if (filteredRows.length > 0) {
     select: false,
     multiple: false,
   }));
+
+  display(tableScroll);
 } else {
   display(html`<p>Nenhuma alteração encontrada com os filtros selecionados.</p>`);
 }
@@ -241,8 +248,6 @@ function makeExportAlteracoes(rows) {
 
   return btn;
 }
-
-display(makeExportAlteracoes(filteredRows));
 ```
 
 </div>
