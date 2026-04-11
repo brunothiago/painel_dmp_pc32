@@ -56,10 +56,13 @@ const diffFieldLabels = {
   urgencia_suspensiva: "Urgencia Susp.",
 };
 
-function fmt(v) {
+function fmt(v, campo) {
   if (v == null || v === "") return "(vazio)";
   if (v instanceof Date) return formatDate(v);
   if (typeof v === "number") return v.toLocaleString("pt-BR");
+  if (campo === "vlr_repasse" && v !== "" && !isNaN(v)) {
+    return Number(v).toLocaleString("pt-BR", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  }
   return String(v);
 }
 
@@ -72,8 +75,8 @@ const alteracaoRows = rawChanges.map(d => ({
   secretaria: d.secretaria || "—",
   tipo: d.tipo || "—",
   campo: d.campo ? (diffFieldLabels[d.campo] || d.campo) : "—",
-  anterior: fmt(d.anterior),
-  atual: fmt(d.atual),
+  anterior: fmt(d.anterior, d.campo),
+  atual: fmt(d.atual, d.campo),
 }));
 
 alteracaoRows.sort((a, b) => {
