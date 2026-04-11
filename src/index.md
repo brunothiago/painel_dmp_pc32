@@ -570,19 +570,6 @@ const baseData = fConvenio.filter(d =>
   matchesAnoFilter(d)
 );
 
-const bySituacao = SITUACAO_ORDER
-  .map(s => ({ situacao: s, qtd: baseData.filter(d => d.situacao === s).length }))
-  .filter(d => d.qtd > 0);
-
-const suspensivaCounts = d3.rollup(
-  baseData.filter(d => d.situacao_suspensiva && d.situacao_suspensiva.trim() !== ""),
-  v => v.length,
-  d => d.situacao_suspensiva
-);
-const bySuspensiva = SUSPENSIVA_ORDER
-  .map(s => ({ situacao_suspensiva: s, qtd: suspensivaCounts.get(s) ?? 0 }))
-  .filter(d => d.qtd > 0);
-
 // ── helper: gráfico clicável como input reativo
 function makeClickableChart(plotEl, items, keyField, initialValue = null) {
   const wrapper = document.createElement("div");
@@ -633,22 +620,49 @@ function makeClickableChart(plotEl, items, keyField, initialValue = null) {
   return input;
 }
 
-function renderSecretariaOverview(rows, field, label, marginLeft) {
+function makeCrossFilteredCharts(data, previousBaseData, drillField, drillLabel, drillMarginLeft) {
+  let sitSel = null;
+  let suspSel = null;
+  let drillSel = null;
   const wrap = Object.assign(document.createElement("div"), {
-    className: "grid-two",
-    value: null
+    value: {situacao: null, suspensiva: null, drill: null}
   });
 
-  function setValue(nextValue) {
-    wrap.value = wrap.value === nextValue ? null : nextValue;
-    render();
-    wrap.dispatchEvent(new Event("input", {bubbles: true}));
+  function applyFilter(d, field, value) {
+    if (value == null) return true;
+    return d[field] === value;
   }
 
-  function buildChartData() {
-    return [...new Set(rows.map(d => d[field]).filter(Boolean))]
-      .map((group) => {
-        const groupRows = rows.filter(d => d[field] === group);
+  function computeChartData() {
+    // Cross-filter: each chart sees data filtered by OTHER selections only
+    const forSituacao = data.filter(d =>
+      applyFilter(d, "situacao_suspensiva", suspSel) &&
+      applyFilter(d, drillField, drillSel)
+    );
+    const bySituacao = SITUACAO_ORDER
+      .map(s => ({situacao: s, qtd: forSituacao.filter(d => d.situacao === s).length}))
+      .filter(d => d.qtd > 0);
+
+    const forSuspensiva = data.filter(d =>
+      applyFilter(d, "situacao", sitSel) &&
+      applyFilter(d, drillField, drillSel)
+    );
+    const suspCounts = d3.rollup(
+      forSuspensiva.filter(d => d.situacao_suspensiva && d.situacao_suspensiva.trim() !== ""),
+      v => v.length,
+      d => d.situacao_suspensiva
+    );
+    const bySuspensiva = SUSPENSIVA_ORDER
+      .map(s => ({situacao_suspensiva: s, qtd: suspCounts.get(s) ?? 0}))
+      .filter(d => d.qtd > 0);
+
+    const forDrill = data.filter(d =>
+      applyFilter(d, "situacao", sitSel) &&
+      applyFilter(d, "situacao_suspensiva", suspSel)
+    );
+    const byDrill = [...new Set(forDrill.map(d => d[drillField]).filter(Boolean))]
+      .map(group => {
+        const groupRows = forDrill.filter(d => d[drillField] === group);
         return {
           group,
           contratos: groupRows.length,
@@ -657,39 +671,126 @@ function renderSecretariaOverview(rows, field, label, marginLeft) {
       })
       .filter(d => d.contratos > 0)
       .sort((a, b) => b.contratos - a.contratos || b.vlr_repasse - a.vlr_repasse);
+
+    return {bySituacao, bySuspensiva, byDrill};
   }
 
-  function makeCard(title, subtitle, chartNode) {
-    const card = document.createElement("div");
-    card.className = "card";
-    const h2 = document.createElement("h2");
-    h2.textContent = title;
-    const p = document.createElement("p");
-    p.textContent = subtitle;
-    card.append(h2, p, chartNode);
-    return card;
+  function emit() {
+    wrap.value = {situacao: sitSel, suspensiva: suspSel, drill: drillSel};
+    wrap.dispatchEvent(new Event("input", {bubbles: true}));
   }
 
   function render() {
     wrap.innerHTML = "";
-    const chartData = buildChartData();
+    const {bySituacao, bySuspensiva, byDrill} = computeChartData();
+
+    // ── Row: Situação + Suspensiva
+    const sitSuspRow = document.createElement("div");
+    sitSuspRow.className = "grid-two";
+
+    // ── Card Situação
+    const sitCard = document.createElement("div");
+    sitCard.className = "card";
+    sitCard.innerHTML = `
+      <h2>Situação do Contrato <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Classificação da situação contratual conforme Transferegov.<ul><li><strong>Em Contratação</strong> — instrumento ainda não formalizado</li><li><strong>Contratado - Suspensiva</strong> — contrato assinado com condição suspensiva pendente</li><li><strong>Contratado - Normal</strong> — contrato ativo sem restrições</li><li><strong>Cancelado ou Distratado</strong> — contrato encerrado</li></ul></span></span></h2>
+      <p>Clique em uma barra para filtrar</p>
+    `;
+    const sitChart = makeClickableChart(
+      Plot.plot({
+        marginLeft: 220, marginRight: 50,
+        height: Math.max(180, bySituacao.length * 44 + 40),
+        style: {fontFamily: "var(--font-sans, IBM Plex Sans, sans-serif)", fontSize: 13},
+        x: {label: null, grid: false, axis: null},
+        y: {label: null, domain: bySituacao.map(d => d.situacao)},
+        marks: [
+          Plot.barX(bySituacao, {
+            x: "qtd", y: "situacao",
+            fill: d => SITUACAO_CORES[d.situacao] ?? "#8a94a3", rx: 6,
+          }),
+          Plot.text(bySituacao, {
+            x: "qtd", y: "situacao",
+            text: d => formatNumber(d.qtd),
+            dx: 6, textAnchor: "start", fontSize: 12, fill: "#5b6470",
+          }),
+        ],
+      }),
+      bySituacao, "situacao", sitSel
+    );
+    sitChart.addEventListener("input", () => {
+      sitSel = sitChart.value;
+      render();
+      emit();
+    });
+    sitCard.append(sitChart);
+
+    // ── Card Suspensiva
+    const suspCard = document.createElement("div");
+    suspCard.className = "card";
+    suspCard.innerHTML = `
+      <h2>Situação da Análise Suspensiva <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Situação da análise da condição suspensiva registrada no Transferegov.<ul><li><strong>Doc. não enviada p/ análise</strong> — documentação ainda não submetida</li><li><strong>Análise não iniciada / iniciada</strong> — etapas de tramitação interna</li><li><strong>Analisada e aceita</strong> — condição aceita, aguardando retirada</li><li><strong>Suspensiva retirada</strong> — condição satisfeita, contrato liberado</li></ul></span></span></h2>
+      <p>Clique em uma barra para filtrar</p>
+    `;
+    const suspChart = makeClickableChart(
+      Plot.plot({
+        marginLeft: 230, marginRight: 50,
+        height: Math.max(180, bySuspensiva.length * 44 + 40),
+        style: {fontFamily: "var(--font-sans, IBM Plex Sans, sans-serif)", fontSize: 13},
+        x: {label: null, grid: false, axis: null},
+        y: {label: null, domain: bySuspensiva.map(d => d.situacao_suspensiva)},
+        marks: [
+          Plot.barX(bySuspensiva, {
+            x: "qtd", y: "situacao_suspensiva",
+            fill: d => SUSPENSIVA_CORES[d.situacao_suspensiva] ?? "#8a94a3", rx: 6,
+          }),
+          Plot.text(bySuspensiva, {
+            x: "qtd", y: "situacao_suspensiva",
+            text: d => formatNumber(d.qtd),
+            dx: 6, textAnchor: "start", fontSize: 12, fill: "#5b6470",
+          }),
+        ],
+      }),
+      bySuspensiva, "situacao_suspensiva", suspSel
+    );
+    suspChart.addEventListener("input", () => {
+      suspSel = suspChart.value;
+      render();
+      emit();
+    });
+    suspCard.append(suspChart);
+
+    sitSuspRow.append(sitCard, suspCard);
+
+    // ── Row: Drill (Contratos + Repasse por Secretaria/Modalidade)
+    const drillRow = document.createElement("div");
+    drillRow.className = "grid-two";
+
+    function makeDrillCard(title, subtitle, chartNode) {
+      const card = document.createElement("div");
+      card.className = "card";
+      const h2 = document.createElement("h2");
+      h2.textContent = title;
+      const p = document.createElement("p");
+      p.textContent = subtitle;
+      card.append(h2, p, chartNode);
+      return card;
+    }
 
     const contratosChart = makeClickableChart(
       Plot.plot({
-        marginLeft,
+        marginLeft: drillMarginLeft,
         marginRight: 90,
-        height: Math.max(180, chartData.length * 52 + 40),
-        style: { fontFamily: "var(--font-sans, IBM Plex Sans, sans-serif)", fontSize: 13 },
-        x: { label: null, grid: false, axis: null },
-        y: { label: null, domain: chartData.map(d => d.group) },
+        height: Math.max(180, byDrill.length * 52 + 40),
+        style: {fontFamily: "var(--font-sans, IBM Plex Sans, sans-serif)", fontSize: 13},
+        x: {label: null, grid: false, axis: null},
+        y: {label: null, domain: byDrill.map(d => d.group)},
         marks: [
-          Plot.barX(chartData, {
+          Plot.barX(byDrill, {
             x: "contratos",
             y: "group",
             fill: "#356c8c",
             rx: 6,
           }),
-          Plot.text(chartData, {
+          Plot.text(byDrill, {
             x: "contratos",
             y: "group",
             text: d => formatNumber(d.contratos),
@@ -700,28 +801,30 @@ function renderSecretariaOverview(rows, field, label, marginLeft) {
           }),
         ],
       }),
-      chartData,
-      "group",
-      wrap.value
+      byDrill, "group", drillSel
     );
-    contratosChart.addEventListener("input", () => setValue(contratosChart.value));
+    contratosChart.addEventListener("input", () => {
+      drillSel = contratosChart.value;
+      render();
+      emit();
+    });
 
     const repasseChart = makeClickableChart(
       Plot.plot({
-        marginLeft,
+        marginLeft: drillMarginLeft,
         marginRight: 110,
-        height: Math.max(180, chartData.length * 52 + 40),
-        style: { fontFamily: "var(--font-sans, IBM Plex Sans, sans-serif)", fontSize: 13 },
-        x: { label: null, grid: false, axis: null },
-        y: { label: null, domain: chartData.map(d => d.group) },
+        height: Math.max(180, byDrill.length * 52 + 40),
+        style: {fontFamily: "var(--font-sans, IBM Plex Sans, sans-serif)", fontSize: 13},
+        x: {label: null, grid: false, axis: null},
+        y: {label: null, domain: byDrill.map(d => d.group)},
         marks: [
-          Plot.barX(chartData, {
+          Plot.barX(byDrill, {
             x: "vlr_repasse",
             y: "group",
             fill: "#0f766e",
             rx: 6,
           }),
-          Plot.text(chartData, {
+          Plot.text(byDrill, {
             x: "vlr_repasse",
             y: "group",
             text: d => formatCurrencyCompact(d.vlr_repasse),
@@ -732,19 +835,60 @@ function renderSecretariaOverview(rows, field, label, marginLeft) {
           }),
         ],
       }),
-      chartData,
-      "group",
-      wrap.value
+      byDrill, "group", drillSel
     );
-    repasseChart.addEventListener("input", () => setValue(repasseChart.value));
+    repasseChart.addEventListener("input", () => {
+      drillSel = repasseChart.value;
+      render();
+      emit();
+    });
 
-    wrap.append(
-      makeCard(`Contratos por ${label}`, "Distribuição da quantidade de contratos na seleção atual", contratosChart),
-      makeCard(`Repasse por ${label}`, "Distribuição do valor total de repasse na seleção atual", repasseChart)
+    drillRow.append(
+      makeDrillCard(`Contratos por ${drillLabel}`, "Distribuição da quantidade de contratos na seleção atual", contratosChart),
+      makeDrillCard(`Repasse por ${drillLabel}`, "Distribuição do valor total de repasse na seleção atual", repasseChart)
     );
+
+    // ── Cards (entre gráficos de situação e drill)
+    const fullyFiltered = data.filter(d =>
+      applyFilter(d, "situacao", sitSel) &&
+      applyFilter(d, "situacao_suspensiva", suspSel) &&
+      applyFilter(d, drillField, drillSel)
+    );
+    const prevFiltered = previousBaseData.filter(d =>
+      applyFilter(d, "situacao", sitSel) &&
+      applyFilter(d, "situacao_suspensiva", suspSel) &&
+      applyFilter(d, drillField, drillSel)
+    );
+    const _total = fullyFiltered.length;
+    const _comSusp = fullyFiltered.filter(d => d.situacao === "Contratado - Suspensiva").length;
+    const _semSusp = fullyFiltered.filter(d => d.situacao === "Contratado - Normal").length;
+    const _vlrTotal = fullyFiltered.reduce((s, d) => s + d.vlr_repasse, 0);
+    const _pTotal = prevFiltered.length;
+    const _pComSusp = prevFiltered.filter(d => d.situacao === "Contratado - Suspensiva").length;
+    const _pSemSusp = prevFiltered.filter(d => d.situacao === "Contratado - Normal").length;
+    const _pVlrTotal = prevFiltered.reduce((s, d) => s + d.vlr_repasse, 0);
+    const _pctSusp = _total > 0 ? _comSusp / _total : 0;
+    const _pctSem = _total > 0 ? _semSusp / _total : 0;
+    const _drillDetail = drillSel == null
+      ? "do recorte principal"
+      : `do recorte de ${drillLabel.toLowerCase()} ${drillSel}`;
+
+    const cardsRow = metricGrid([
+      { label: "Total selecionadas", value: formatNumber(_total), delta: buildMetricDelta(_total, _pTotal), detail: _drillDetail, tone: "default" },
+      { label: "Com suspensiva", value: formatNumber(_comSusp), detail: `${formatPercent(_pctSusp)} ${_drillDetail}`, delta: buildMetricDelta(_comSusp, _pComSusp), tone: "gold" },
+      { label: "Sem suspensiva (Normal)", value: formatNumber(_semSusp), detail: `${formatPercent(_pctSem)} ${_drillDetail}`, delta: buildMetricDelta(_semSusp, _pSemSusp), tone: "green" },
+      { label: "Valor total de repasse", value: formatCurrencyCompact(_vlrTotal), detail: _drillDetail, delta: buildMetricDelta(_vlrTotal, _pVlrTotal, formatCurrencyDelta), tone: "blue" },
+    ]);
+
+    wrap.append(cardsRow, drillRow, sitSuspRow);
+
+    if (window.__pc32RuleTooltipInit) {
+      window.__pc32RuleTooltipInit.syncRuleTooltips();
+    }
   }
 
   render();
+  emit();
   return wrap;
 }
 
@@ -1271,146 +1415,51 @@ function normalizeDrillSelection(selection) {
 ```
 
 ```js
-// ── data final: baseData + seleção dos gráficos
-const dataBaseSemGeo = baseData.filter(d =>
-  (selectedSituacao == null || d.situacao === selectedSituacao) &&
-  (selectedSuspensiva == null || d.situacao_suspensiva === selectedSuspensiva)
-);
-
-const previousBaseData = previousRawData.filter(d =>
-  fConvenio.some(row => row.num_convenio === d.num_convenio && row.cod_tci === d.cod_tci) &&
-  matchesSecretariaFilter(d) &&
-  matchesModalidadeFilter(d) &&
-  matchesAnoFilter(d)
-);
-
-const previousDataSemGeo = previousBaseData.filter(d =>
-  (selectedSituacao == null || d.situacao === selectedSituacao) &&
-  (selectedSuspensiva == null || d.situacao_suspensiva === selectedSuspensiva)
-);
-
+// ── Drill field config (depende apenas dos filtros cascade, sem circular dependency)
 const secretariaDrillField = secretariaSelecionada.length === 1 ? "modalidade" : "secretaria";
 const secretariaDrillLabel = secretariaDrillField === "secretaria" ? "Secretaria" : "Modalidade";
 const secretariaDrillMarginLeft = secretariaDrillField === "secretaria" ? 90 : 240;
 ```
 
 ```js
-const secretariaDrillSelection = normalizeDrillSelection(selectedSecretariaDrill);
-
-const dataSemGeo = dataBaseSemGeo.filter(d =>
-  secretariaDrillSelection == null || d[secretariaDrillField] === secretariaDrillSelection
+// ── previousBaseData (depende apenas dos filtros cascade, sem dependência de selectedCharts)
+const previousBaseData = previousRawData.filter(d =>
+  fConvenio.some(row => row.num_convenio === d.num_convenio && row.cod_tci === d.cod_tci) &&
+  matchesSecretariaFilter(d) &&
+  matchesModalidadeFilter(d) &&
+  matchesAnoFilter(d)
 );
-const previousData = previousDataSemGeo.filter(d =>
-  secretariaDrillSelection == null || d[secretariaDrillField] === secretariaDrillSelection
-);
-const data = dataSemGeo;
-
-const total = data.length;
-const comSuspensiva = data.filter(d => d.situacao === "Contratado - Suspensiva").length;
-const semSuspensiva = data.filter(d => d.situacao === "Contratado - Normal").length;
-const vlrTotal = data.reduce((s, d) => s + d.vlr_repasse, 0);
-const previousTotal = previousData.length;
-const previousComSuspensiva = previousData.filter(d => d.situacao === "Contratado - Suspensiva").length;
-const previousSemSuspensiva = previousData.filter(d => d.situacao === "Contratado - Normal").length;
-const previousVlrTotal = previousData.reduce((s, d) => s + d.vlr_repasse, 0);
-const pctSuspensiva = data.length > 0 ? comSuspensiva / data.length : 0;
-const pctSemSuspensiva = data.length > 0 ? semSuspensiva / data.length : 0;
-const drillDetail = secretariaDrillSelection == null
-  ? "do recorte principal"
-  : `do recorte de ${secretariaDrillLabel.toLowerCase()} ${secretariaDrillSelection}`;
 ```
 
 ```js
-display(metricGrid([
-  {
-    label: "Total selecionadas",
-    value: formatNumber(total),
-    delta: buildMetricDelta(total, previousTotal),
-    detail: drillDetail,
-    tone: "default"
-  },
-  { label: "Com suspensiva", value: formatNumber(comSuspensiva), detail: `${formatPercent(pctSuspensiva)} ${drillDetail}`, delta: buildMetricDelta(comSuspensiva, previousComSuspensiva), tone: "gold" },
-  { label: "Sem suspensiva (Normal)", value: formatNumber(semSuspensiva), detail: `${formatPercent(pctSemSuspensiva)} ${drillDetail}`, delta: buildMetricDelta(semSuspensiva, previousSemSuspensiva), tone: "green" },
-  { label: "Valor total de repasse", value: formatCurrencyCompact(vlrTotal), detail: drillDetail, delta: buildMetricDelta(vlrTotal, previousVlrTotal, formatCurrencyDelta), tone: "blue" },
-]));
-```
-
-```js
-const selectedSecretariaDrill = view(renderSecretariaOverview(
-  dataBaseSemGeo,
+const selectedCharts = view(makeCrossFilteredCharts(
+  baseData,
+  previousBaseData,
   secretariaDrillField,
   secretariaDrillLabel,
   secretariaDrillMarginLeft
 ));
 ```
 
-<div class="grid-two">
-
-<div class="card">
-
-<h2>Situação do Contrato <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Classificação da situação contratual conforme Transferegov.<ul><li><strong>Em Contratação</strong> — instrumento ainda não formalizado</li><li><strong>Contratado - Suspensiva</strong> — contrato assinado com condição suspensiva pendente</li><li><strong>Contratado - Normal</strong> — contrato ativo sem restrições</li><li><strong>Cancelado ou Distratado</strong> — contrato encerrado</li></ul></span></span></h2>
-
-<p>Clique em uma barra para filtrar</p>
-
 ```js
-const selectedSituacao = view(makeClickableChart(
-  Plot.plot({
-    marginLeft: 220, marginRight: 50,
-    height: Math.max(180, bySituacao.length * 44 + 40),
-    style: { fontFamily: "var(--font-sans, IBM Plex Sans, sans-serif)", fontSize: 13 },
-    x: { label: null, grid: false, axis: null },
-    y: { label: null, domain: bySituacao.map(d => d.situacao) },
-    marks: [
-      Plot.barX(bySituacao, {
-        x: "qtd", y: "situacao",
-        fill: d => SITUACAO_CORES[d.situacao] ?? "#8a94a3", rx: 6,
-      }),
-      Plot.text(bySituacao, {
-        x: "qtd", y: "situacao",
-        text: d => formatNumber(d.qtd),
-        dx: 6, textAnchor: "start", fontSize: 12, fill: "#5b6470",
-      }),
-    ],
-  }),
-  bySituacao, "situacao"
-));
+// ── data final: baseData + seleção dos gráficos (cross-filtered)
+const selectedSituacao = selectedCharts?.situacao ?? null;
+const selectedSuspensiva = selectedCharts?.suspensiva ?? null;
+const secretariaDrillSelection = normalizeDrillSelection(selectedCharts?.drill ?? null);
+
+const dataSemGeo = baseData.filter(d =>
+  (selectedSituacao == null || d.situacao === selectedSituacao) &&
+  (selectedSuspensiva == null || d.situacao_suspensiva === selectedSuspensiva) &&
+  (secretariaDrillSelection == null || d[secretariaDrillField] === secretariaDrillSelection)
+);
+
+const previousData = previousBaseData.filter(d =>
+  (selectedSituacao == null || d.situacao === selectedSituacao) &&
+  (selectedSuspensiva == null || d.situacao_suspensiva === selectedSuspensiva) &&
+  (secretariaDrillSelection == null || d[secretariaDrillField] === secretariaDrillSelection)
+);
+const data = dataSemGeo;
 ```
-
-</div>
-
-<div class="card">
-
-<h2>Situação da Análise Suspensiva <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Situação da análise da condição suspensiva registrada no Transferegov.<ul><li><strong>Doc. não enviada p/ análise</strong> — documentação ainda não submetida</li><li><strong>Análise não iniciada / iniciada</strong> — etapas de tramitação interna</li><li><strong>Analisada e aceita</strong> — condição aceita, aguardando retirada</li><li><strong>Suspensiva retirada</strong> — condição satisfeita, contrato liberado</li></ul></span></span></h2>
-
-<p>Clique em uma barra para filtrar</p>
-
-```js
-const selectedSuspensiva = view(makeClickableChart(
-  Plot.plot({
-    marginLeft: 230, marginRight: 50,
-    height: Math.max(180, bySuspensiva.length * 44 + 40),
-    style: { fontFamily: "var(--font-sans, IBM Plex Sans, sans-serif)", fontSize: 13 },
-    x: { label: null, grid: false, axis: null },
-    y: { label: null, domain: bySuspensiva.map(d => d.situacao_suspensiva) },
-    marks: [
-      Plot.barX(bySuspensiva, {
-        x: "qtd", y: "situacao_suspensiva",
-        fill: d => SUSPENSIVA_CORES[d.situacao_suspensiva] ?? "#8a94a3", rx: 6,
-      }),
-      Plot.text(bySuspensiva, {
-        x: "qtd", y: "situacao_suspensiva",
-        text: d => formatNumber(d.qtd),
-        dx: 6, textAnchor: "start", fontSize: 12, fill: "#5b6470",
-      }),
-    ],
-  }),
-  bySuspensiva, "situacao_suspensiva"
-));
-```
-
-</div>
-
-</div>
 
 <div class="card">
 
