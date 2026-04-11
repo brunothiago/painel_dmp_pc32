@@ -111,15 +111,11 @@ function connector(label) {
 
 export function matchesCascadeSelection(d, selection = {}) {
   return (
-    (selection.situacao == null || d.situacao === selection.situacao) &&
-    (
-      selection.suspensiva == null ||
-      (d.situacao === "Contratado - Suspensiva" && d.situacao_suspensiva === selection.suspensiva)
-    ) &&
+    d.situacao === "Contratado - Suspensiva" &&
+    (selection.suspensiva == null || d.situacao_suspensiva === selection.suspensiva) &&
     (
       selection.urgencia == null ||
       (
-        d.situacao === "Contratado - Suspensiva" &&
         !d.dt_retirada_suspensiva &&
         d.urgencia_suspensiva === selection.urgencia
       )
@@ -132,13 +128,14 @@ export function matchesCascadeSelection(d, selection = {}) {
  */
 export function cascadeChart(data) {
   const container = Object.assign(el("div", "casc-chart"), {
-    value: {situacao: null, suspensiva: null, urgencia: null}
+    value: {suspensiva: null, urgencia: null}
   });
 
   function setFilter(key, label) {
+    const nextValue = container.value[key] === label ? null : label;
     container.value = {
       ...container.value,
-      [key]: container.value[key] === label ? null : label
+      [key]: nextValue
     };
     render();
     container.dispatchEvent(new Event("input", {bubbles: true}));
@@ -149,7 +146,7 @@ export function cascadeChart(data) {
   clear.textContent = "Limpar seleção";
   clear.hidden = true;
   clear.addEventListener("click", () => {
-    container.value = {situacao: null, suspensiva: null, urgencia: null};
+    container.value = {suspensiva: null, urgencia: null};
     render();
     container.dispatchEvent(new Event("input", {bubbles: true}));
   });
@@ -169,54 +166,22 @@ export function cascadeChart(data) {
       return;
     }
 
-    const bySituacao = SITUACAO_ORDER
-      .map(s => ({
-        label: s,
-        qtd: filteredData.filter(d => d.situacao === s).length,
-        color: SITUACAO_CORES[s] ?? PALETTE.gray,
-      }))
-      .filter(i => i.qtd > 0);
-
-    container.append(
-      level(
-        `${totalN1.toLocaleString("pt-BR")} contratos selecionados`,
-        "por situação do contrato",
-        bySituacao,
-        totalN1,
-        {
-          filterKey: "situacao",
-          selectedValue: container.value.situacao,
-          onSelect: setFilter
-        }
-      )
-    );
-
-    const comSusp = filteredData.filter(d => d.situacao === "Contratado - Suspensiva");
-    const totalN2 = comSusp.length;
-
-    if (totalN2 === 0) {
-      const msg = el("p", "casc-empty");
-      msg.textContent = "Nenhum contrato com suspensiva ativa na seleção atual.";
-      container.append(msg);
-      return;
-    }
-
-    container.append(connector(`${totalN2.toLocaleString("pt-BR")} com suspensiva ativa`));
+    const pendentes = filteredData.filter(d => !d.dt_retirada_suspensiva);
 
     const byAnlise = SUSPENSIVA_ORDER
       .map(s => ({
         label: s,
-        qtd: comSusp.filter(d => d.situacao_suspensiva === s).length,
+        qtd: filteredData.filter(d => d.situacao_suspensiva === s).length,
         color: SUSPENSIVA_CORES[s] ?? PALETTE.gray,
       }))
       .filter(i => i.qtd > 0);
 
     container.append(
       level(
-        `${totalN2.toLocaleString("pt-BR")} contratos em suspensiva`,
+        `${totalN1.toLocaleString("pt-BR")} contratos em suspensiva`,
         "por situação da análise",
         byAnlise,
-        totalN2,
+        totalN1,
         {
           filterKey: "suspensiva",
           selectedValue: container.value.suspensiva,
@@ -226,8 +191,6 @@ export function cascadeChart(data) {
     );
 
     container.append(connector("por prazo de vencimento da suspensiva"));
-
-    const pendentes = comSusp.filter(d => !d.dt_retirada_suspensiva && d.situacao !== "Cancelado ou Distratado");
     const byUrgencia = URGENCIA_ORDER
       .map(u => ({
         label: u,
@@ -238,10 +201,10 @@ export function cascadeChart(data) {
 
     container.append(
       level(
-        `${totalN2.toLocaleString("pt-BR")} contratos em suspensiva`,
+        `${pendentes.length.toLocaleString("pt-BR")} contratos com suspensiva pendente`,
         "por urgência do vencimento",
         byUrgencia,
-        totalN2,
+        pendentes.length,
         {
           filterKey: "urgencia",
           selectedValue: container.value.urgencia,

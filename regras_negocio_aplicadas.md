@@ -1,103 +1,78 @@
 # Regras de Negócio Aplicadas
 
-Este documento resume as regras de negócio atualmente implementadas no painel.
+Este documento resume as regras implementadas hoje no pipeline de dados e no painel.
 
-## 1. Base e filtros gerais
+## 1. Base de dados
 
-- A base é carregada a partir de `src/data/base_pc_32.csv`.
-- Os filtros de topo aplicados sobre a base são:
-  - `Convênio / TCI`
-  - `Secretaria`
-  - `Modalidade`
-- O filtro de `Modalidade` depende da `Secretaria` selecionada.
-- Todos os indicadores, gráficos e a tabela respeitam esses filtros de topo.
+A base publicada em `src/data/base_pc_32.csv` é extraída por `python/extrair_base.py`.
 
-## 2. Campos carregados da base
+Filtros de origem aplicados no SQL:
 
-Os principais campos usados na lógica do painel são:
+- `txt_fonte = 'OGU'`
+- `dsc_fase_pac = 'NOVO PAC - Seleção'`
+- exclusão de `txt_sigla_secretaria = 'SNH'`
 
-- `cod_tci`
-- `num_convenio`
-- `secretaria`
-- `fase`
-- `modalidade`
-- `situacao`
-- `dt_assinatura`
-- `situacao_suspensiva`
-- `dt_vencimento_suspensiva`
-- `dt_retirada_suspensiva`
-- `dt_lae`
-- `dt_pub_licitacao`
-- `dt_homolog_licitacao`
-- `dt_vrpl`
-- `dt_aio`
-- `dt_inicio_obra`
-- `vlr_repasse`
+## 2. Campos derivados no pipeline
 
-## 3. Painel executivo
+O SQL gera, além dos campos de origem, os principais campos derivados abaixo:
 
-Os cards de topo calculam:
+- `status_suspensiva`
+- `flag_publicacao_licitacao`
+- `flag_homologacao_licitacao`
+- `ultima_data_relevante`
+- `fase_atual`
+- intervalos em dias entre marcos
+- `faixa_repasse`
+- `prazo_pub_licitacao`
+- `prazo_homolog_licitacao`
+- `prazo_inicio_obra`
+- `status_regra_casa_civil`
+- `status_pub_licitacao`
+- `status_homolog_licitacao`
+- `status_inicio_obra`
+- `urgencia_suspensiva`
 
-- `Total selecionadas`
-- `Com suspensiva`
-- `Sem suspensiva (Normal)`
-- `Valor total de repasse`
+## 3. Suspensiva
 
-## 4. Gráficos gerais
+### `status_suspensiva`
 
-Estão implementados:
+- `PENDENTE` quando há vencimento de suspensiva e não há retirada
+- `RETIRADA` quando existe `dte_retirada_suspensiva`
+- `SEM SUSPENSIVA` nos demais casos
 
-- `Contratos por Secretaria/Modalidade`
-- `Repasse por Secretaria/Modalidade`
-- `Situação do Contrato`
-- `Situação da Análise Suspensiva`
+### `urgencia_suspensiva`
 
-Regras:
+Aplica-se apenas quando a suspensiva não foi retirada e o contrato não está cancelado.
 
-- Quando a secretaria é `Todas`, os gráficos de distribuição usam `Secretaria`.
-- Quando uma secretaria específica é escolhida, os gráficos usam `Modalidade`.
-- Os gráficos de `Situação do Contrato` e `Situação da Análise Suspensiva` são clicáveis e filtram o restante do painel.
+- `Sem data` quando não há vencimento
+- `Vencida` quando o vencimento já passou
+- `Próximos 30 dias` quando faltam até 30 dias
+- `31–90 dias` quando faltam de 31 a 90 dias
+- `Mais de 90 dias` nos demais casos
 
-## 5. Análise de suspensivas
+## 4. Fase atual
 
-### 5.1. Classificação de urgência
+`fase_atual` é definida pela precedência abaixo:
 
-Para contratos com suspensiva:
+1. `OBRA INICIADA`
+2. `AIO`
+3. `VRPL`
+4. `HOMOLOGACAO`
+5. `PUBLICACAO LICITACAO`
+6. `LAE`
+7. `SUSPENSIVA RETIRADA`
+8. `SUSPENSIVA`
+9. `SEM ANDAMENTO`
 
-- se `dt_retirada_suspensiva` existe, o contrato não entra na urgência
-- se `situacao` for `Cancelado ou Distratado`, o contrato não entra na urgência
-- se não existir `dt_vencimento_suspensiva`, classifica como `Sem data`
-- se o vencimento já passou, classifica como `Vencida`
-- se vencer em até 30 dias, classifica como `Próximos 30 dias`
-- se vencer entre 31 e 90 dias, classifica como `31–90 dias`
-- se vencer acima de 90 dias, classifica como `Mais de 90 dias`
+## 5. Licitação
 
-### 5.2. Cascata de suspensivas
+### Prazo de publicação
 
-A cascata implementa os filtros:
+Hoje o prazo de publicação implementado no SQL é:
 
-- `situacao`
-- `suspensiva`
-- `urgencia`
+- `prazo_pub_licitacao = dte_retirada_suspensiva + 120 dias corridos`
 
-Essa seleção afeta a tabela final.
-
-### 5.3. Alertas
-
-Há alerta visual quando existem contratos:
-
-- com suspensiva `Vencida`
-- com suspensiva nos `Próximos 30 dias`
-
-## 6. Análise de licitação
-
-### 6.1. Prazo de publicação
-
-Hoje o prazo de publicação está implementado como:
-
-- `prazo_pub_licitacao = dt_lae + 120 dias corridos`
-
-Status de publicação:
+O status calculado é:
 
 - `Concluída no prazo`
 - `Concluída em atraso`
@@ -105,13 +80,15 @@ Status de publicação:
 - `Próximos 30 dias`
 - `No prazo`
 
-### 6.2. Prazo de homologação
+Contratos cancelados ou sem retirada de suspensiva não entram nesse status.
 
-O prazo de homologação está implementado como:
+### Prazo de homologação
 
-- `prazo_homolog_licitacao = dt_pub_licitacao + 120 dias corridos`
+Hoje o prazo de homologação implementado no SQL é:
 
-Status de homologação:
+- `prazo_homolog_licitacao = dte_publicacao_licitacao + 120 dias corridos`
+
+O status calculado é:
 
 - `Concluída no prazo`
 - `Concluída em atraso`
@@ -120,44 +97,15 @@ Status de homologação:
 - `No prazo`
 - `Inconsistência de base`
 
-`Inconsistência de base` ocorre quando existe `dt_homolog_licitacao` sem `dt_pub_licitacao`.
+`Inconsistência de base` ocorre quando existe homologação sem publicação.
 
-### 6.3. Regras da análise visual
+## 6. Regra Casa Civil
 
-O box de licitação calcula:
+A data fixa implementada é:
 
-- `Com LAE`
-- `Aguardando publicação`
-- `Publicação vencida`
-- `Publicação nos próximos 30 dias`
-- `Homologação vencida`
-- `Homologação nos próximos 30 dias`
+- `31/03/2026`
 
-Também há uma cascata clicável com os filtros:
-
-- `pub_etapa`
-- `pub_prazo`
-- `homolog_etapa`
-- `homolog_prazo`
-
-Essa seleção também afeta a tabela final.
-
-### 6.4. Alertas
-
-Há alerta visual quando existem contratos:
-
-- com `Publicação vencida`
-- com publicação nos `Próximos 30 dias`
-- com `Homologação vencida`
-- com homologação nos `Próximos 30 dias`
-
-## 7. Regra Casa Civil
-
-Foi implementada a data fixa:
-
-- `Data Limite de Licitação Casa Civil = 31/03/2026`
-
-Status da regra:
+Status:
 
 - `Cumpriu`
 - `Não cumpriu`
@@ -166,95 +114,66 @@ Status da regra:
 Regras:
 
 - `Fora do escopo` para `Cancelado ou Distratado`
-- `Cumpriu` somente se todos os eventos abaixo ocorreram até `31/03/2026`:
-  - `dt_pub_licitacao`
-  - `dt_homolog_licitacao`
-  - `dt_inicio_obra`
+- `Cumpriu` apenas quando publicação, homologação e início de obra ocorreram até `31/03/2026`
 - caso contrário, `Não cumpriu`
 
-Existe gráfico específico para esse cumprimento dentro do box de licitação.
+## 7. Início de obra
 
-## 8. Análise de início da obra
+### Prazo
 
-### 8.1. Prazo
+- `prazo_inicio_obra = 10 dias úteis após AIO`
 
-Foi implementado:
+No cálculo de dias úteis:
 
-- `prazo_inicio_obra = dt_aio + 10 dias úteis`
-
-Dias úteis considerados:
-
-- segunda a sexta-feira
+- segunda a sexta contam
 - sábado e domingo não contam
 
-### 8.2. Status
+### Status
 
-Os status implementados são:
-
-- `Iniciada no prazo`
-- `Iniciada em atraso`
-- `No prazo`
-- `Próximos 10 dias úteis`
-- `Prazo vencido`
-
-Regras:
-
-- se não houver `dt_aio`, não entra nessa análise
-- se `situacao` for `Cancelado ou Distratado`, não entra nessa análise
-- se houver `dt_inicio_obra`, compara com `prazo_inicio_obra`
-- se não houver `dt_inicio_obra`, compara a data atual com o prazo calculado
-
-### 8.3. Indicadores e alertas
-
-O box de início da obra calcula:
-
-- `Com AIO`
 - `Iniciada no prazo`
 - `Iniciada em atraso`
 - `Prazo vencido`
 - `Próximos 10 dias úteis`
 - `No prazo`
 
-Há alerta visual quando existem contratos:
+Contratos sem `AIO` ou cancelados ficam fora dessa análise.
 
-- com `Prazo vencido`
-- nos `Próximos 10 dias úteis`
+## 8. Regras do painel
 
-## 9. Tabela
+### Página principal
 
-A tabela final:
+O painel principal usa:
 
-- respeita os filtros de topo
-- respeita a seleção da cascata de suspensivas
-- respeita a seleção da cascata de licitação
-- não possui seleção de linha
-- possui link no `TCI` para o SACI:
-  - `https://saci.cidades.gov.br/contratos/<cod_tci>`
+- base atual
+- base anterior
+- resumo do snapshot
 
-## 10. Colunas derivadas hoje exibidas/exportadas
+Os cards com delta comparam o snapshot atual com o snapshot anterior.
 
-Além dos campos originais, estão implementadas na tabela/exportação:
+### Página de alterações
 
-- `Data Limite de Licitação Casa Civil`
-- `Cumprimento Regra Casa Civil`
-- `Prazo Publicação`
-- `Status Publicação`
-- `Prazo Homolog.`
-- `Status Homolog.`
-- `Prazo Início Obra`
-- `Status Início Obra`
+A página `alteracoes` usa `src/data/base_alteracoes.csv`, gerado a partir da comparação entre snapshots consecutivos.
 
-## 11. Exportação
+### Atualização exibida
 
-A exportação para XLSX:
+A informação “Atualizado em” é derivada dos metadados de snapshot gerados no pipeline, e não da data do navegador.
 
-- respeita o estado filtrado atual da tabela
-- exporta as colunas derivadas implementadas
-- formata datas em `dd/mm/aaaa`
-- formata `vlr_repasse` como número monetário
+## 9. Chave de comparação entre snapshots
 
-## 12. Observações importantes
+Na comparação de snapshots:
 
-- A regra de publicação da licitação hoje usa `dt_lae` como marco para o prazo de 120 dias.
-- A regra `prazo de edital a partir da Retirada Suspensiva` não está aplicada neste momento.
-- A data de atualização exibida no topo usa a data atual de carregamento da página.
+- a chave principal é `num_convenio`
+- se estiver vazio, usa `cod_tci`
+
+Se houver linhas sem ambas as chaves, ou chaves duplicadas, a geração do diff falha.
+
+## 10. Artefatos de diff
+
+O pipeline gera:
+
+- snapshot diário em `data/historico/`
+- resumo em `src/data/base_diff_latest.json`
+- histórico acumulado em `src/data/base_alteracoes.csv`
+- detalhes por execução em `data/diff/`
+
+Os artefatos de `data/diff/` fazem parte do fluxo oficial de atualização.

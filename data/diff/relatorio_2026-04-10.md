@@ -1,0 +1,30 @@
+# Diferença da base PC 32 - 2026-04-10
+
+- Snapshot atual: `2026-04-10`
+- Snapshot anterior: `2026-04-08`
+- Total anterior: **1578**
+- Total atual: **1579**
+
+## Resumo
+
+- Entraram na base: **1**
+- Saíram da base: **0**
+- Registros com alguma alteração: **135**
+- Registros com mudança de dados de origem: **125**
+- Registros com mudança apenas em campos derivados/status: **10**
+
+## Mudanças por status
+
+- `status_suspensiva`: **4**
+- `status_pub_licitacao`: **17**
+- `status_homolog_licitacao`: **3**
+- `status_inicio_obra`: **4**
+- `status_regra_casa_civil`: **0**
+- `urgencia_suspensiva`: **23**
+- `fase_atual`: **16**
+
+## Leitura recomendada
+
+- `categoria_alteracao = dados_e_derivados`: mudou dado de origem e isso também repercutiu em campos calculados.
+- `categoria_alteracao = dados`: mudou apenas dado de origem, sem alterar status calculado.
+- `categoria_alteracao = derivados_tempo`: o dado-base ficou igual; a alteração veio só de regra derivada/data corrente.

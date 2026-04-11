@@ -1,3 +1,5 @@
+import {resolveCurrentNavPath} from "./src/lib/navigation.js";
+
 export default {
   title: "Painel PC 32 — Novo PAC",
   root: "src",
@@ -23,20 +25,29 @@ export default {
     <div class="site-shell">
       <div class="site-topbar">
         <div class="brand-lockup">
-          <a class="brand-home" href="./" aria-label="Painel PC 32 — Novo PAC">
-            <img class="brand-logo" src="./logos/logo_mcid.png" alt="Ministério das Cidades">
+          <a class="brand-home" href="./" aria-label="Página inicial do Painel PC 32 — Novo PAC Seleção">
             <div class="brand-text">
-              <span class="brand-kicker">Ministério das Cidades · CGPAC</span>
+              <span class="brand-kicker">Ministério das Cidades</span>
               <span class="brand-title">Painel PC 32 — Novo PAC Seleção</span>
             </div>
           </a>
         </div>
-        <nav class="site-nav">
+        <nav class="site-nav" aria-label="Navegação principal">
           <a href="./">Painel</a>
           <a href="./alteracoes">Alterações</a>
         </nav>
       </div>
     </div>
+    <script>
+      const resolveCurrentNavPath = ${resolveCurrentNavPath.toString()};
+      (() => {
+        const currentNavPath = resolveCurrentNavPath(location.pathname);
+        document.querySelectorAll(".site-nav a").forEach((a) => {
+          const href = new URL(a.getAttribute("href"), location.href).pathname.replace(/\\/$/, "") || "/";
+          if (href === currentNavPath) a.setAttribute("aria-current", "page");
+        });
+      })();
+    </script>
   `,
   footer: `
     <div class="site-shell footer-shell">

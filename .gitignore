@@ -6,5 +6,4 @@ src/.observablehq/cache/
 .env
 config.env
 scripts/update.log
-data/diff/
 **/__pycache__/

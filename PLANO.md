@@ -1,131 +1,98 @@
-# Plano — Painel PC 32 CGPAC
+# Plano Operacional — Painel PC 32 CGPAC
 
 ## Visão Geral
 
-Painel em Observable Framework para acompanhamento dos contratos da PC 32 (Novo PAC — Seleção).
-Base: `base_pc_32.csv` — **1.531 registros**, separador `;`, 17 colunas.
+Este repositório publica um painel estático em Observable Framework para acompanhamento dos contratos da Portaria Conjunta 32 do Novo PAC Seleção.
 
----
+O projeto tem dois blocos:
 
-## Dados da Base
+- extração e preparação de dados em `python/`
+- visualização e publicação em `src/`
 
-| Coluna | Tipo | Exemplo |
-|---|---|---|
-| cod_tci | texto | 1-1965594 |
-| num_convenio | texto | 960414 |
-| txt_sigla_secretaria | cat. (3) | SNSA, SNP, SEMOB |
-| dsc_fase_pac | texto | NOVO PAC - Seleção |
-| txt_modalidade | cat. (10) | Drenagem Urbana, Contenção de Encostas, ... |
-| dsc_situacao_contrato_mcid | cat. (6) | Contratado - Normal, Contratado - Suspensiva, ... |
-| dte_assinatura_contrato | data | 2024-06-14 |
-| situacao_da_analise_suspensiva | cat. (8) | Suspensiva retirada, Análise iniciada, ... |
-| vencimento_da_suspensiva | data | 2025-03-11 |
-| dte_retirada_suspensiva | data | 2024-10-14 |
-| dte_primeira_data_lae | data | 2024-10-10 |
-| dte_publicacao_licitacao | data | 2024-04-02 |
-| dte_homologacao_licitacao | data | 2024-08-08 |
-| dte_vrpl | data | 2024-12-06 |
-| dte_aio | data | 2024-12-12 |
-| dte_inicio_obra_mcid | data | 2024-11-14 |
-| vlr_repasse | numérico | 16627047.71 |
+## Fluxo Oficial
 
----
+O fluxo oficial de atualização é:
 
-## Estrutura do Painel
+1. executar `scripts/update.sh` em macOS/Linux, ou `scripts/update.bat` no Windows
+2. rodar a extração Python com `uv`
+3. atualizar a base principal em `src/data/base_pc_32.csv`
+4. gerar snapshots e artefatos auxiliares
+5. executar `npm run build`
+6. versionar e publicar os artefatos alterados
 
-### Página única: `index.md`
+## Artefatos Gerados
 
-#### 1. Filtros (topo)
+### Dados consumidos pelo painel
 
-- **Num Convênio** — input de texto com busca (search)
-- **Secretaria** — select múltiplo (`SNSA`, `SNP`, `SEMOB`)
-- **Modalidade** — select múltiplo (10 categorias)
+- `src/data/base_pc_32.csv`: snapshot atual completo
+- `src/data/base_pc_32_previous.csv`: snapshot anterior consumível pelo painel
+- `src/data/base_pc_32_first.csv`: primeiro snapshot disponível
+- `src/data/base_diff_latest.json`: resumo do snapshot atual, anterior e deltas
+- `src/data/base_alteracoes.csv`: mudanças acumuladas entre snapshots
 
-Todos os gráficos e a tabela reagem aos filtros.
+### Histórico e auditoria
 
-#### 2. Cards de resumo
+- `data/historico/`: snapshots diários da base
+- `data/diff/`: relatórios detalhados por execução, em CSV e Markdown
 
-| Card | Valor |
-|---|---|
-| Total de Selecionadas | contagem total (filtrada) |
-| Suspensivas | onde `dsc_situacao_contrato_mcid === "Contratado - Suspensiva"` |
-| Sem Suspensiva (Normal) | onde `dsc_situacao_contrato_mcid === "Contratado - Normal"` |
-| Valor Total de Repasse | soma de `vlr_repasse` (R$ formatado) |
+## Entrypoints
 
-#### 3. Gráfico de Etapas
+### `scripts/update.sh`
 
-Gráfico de barras horizontais mostrando a **contagem por etapa do contrato** (`dsc_situacao_contrato_mcid`):
+É o entrypoint canônico do projeto. Faz:
 
-- Contratado - Normal (863)
-- Contratado - Suspensiva (598)
-- Cancelado ou Distratado (50)
-- Em Contratação (18)
-- Outros (2)
+- validação de dependências (`uv`, `node`, `npm`, `git`)
+- extração da base
+- build do painel
+- detecção de mudança nos artefatos versionados
+- `git add`, `git commit` e `git push`
 
-Cores diferenciadas por categoria. Reage aos filtros.
+### `scripts/update.bat`
 
-#### 4. Gráfico de Situação da Análise Suspensiva
+É apenas um wrapper Windows para o fluxo oficial. Localiza o `bash` do Git for Windows e chama `scripts/update.sh`.
 
-Gráfico de barras mostrando `situacao_da_analise_suspensiva`:
+### `python/executar.bat`
 
-- Suspensiva retirada (854)
-- Doc. não enviada p/ análise (318)
-- Analisada com pendências (163)
-- Análise iniciada (103)
-- Análise não iniciada (59)
-- Outros
+É um atalho manual de conveniência para rodar somente `python/extrair_base.py` no Windows. Ele não builda o painel, não verifica mudanças e não publica artefatos.
 
-#### 5. Tabela interativa
+## Estrutura do Frontend
 
-Tabela com `Inputs.table` contendo todas as colunas principais:
-- cod_tci, num_convenio, secretaria, modalidade, situação, situação suspensiva, valor repasse
-- Ordenável por qualquer coluna
-- Reage aos filtros
+### `src/index.md`
 
----
+Página principal do painel. Consome:
 
-## Etapas de Implementação
+- base atual
+- base anterior
+- resumo de snapshot
 
-### Etapa 1 — Scaffold do projeto Observable ✅
+Principais blocos:
 
-- [x] Inicializar projeto com `package.json` + dependências
-- [x] Copiar `base_pc_32.csv` para `src/data/`
-- [x] Configurar `observablehq.config.js` (título, tema, head com fontes)
-- [x] Copiar `theme.css` e assets visuais (logos, favicon) do painel de referência
+- filtros de topo
+- cards com delta contra o snapshot anterior
+- análises de suspensiva
+- análises de licitação
+- regra Casa Civil
+- análises de início de obra
+- tabela final com exportação
 
-### Etapa 2 — Utilitários e carregamento de dados ✅
+### `src/alteracoes.md`
 
-- [x] Criar `src/lib/formatters.js` (formatNumber, formatCurrency, formatCurrencyCompact, formatPercent, formatDate)
-- [x] Criar `src/lib/theme.js` (paleta de cores, SITUACAO_CORES, SUSPENSIVA_CORES)
-- [x] Criar `src/components/cards.js` (metricGrid, metricCard)
-- [x] Carregamento via `FileAttachment` + `dsvFormat(";")` no `index.md`
+Página dedicada ao histórico acumulado de mudanças entre snapshots.
 
-### Etapa 3 — Página principal (`src/index.md`) ✅
+## Atualização exibida no cabeçalho
 
-- [x] Cabeçalho do painel
-- [x] Filtros: Num Convênio (search), Secretaria (select), Modalidade (select)
-- [x] Cards de resumo (total, suspensivas, sem suspensiva, valor repasse)
-- [x] Gráfico de barras — Situação do Contrato (`dsc_situacao_contrato_mcid`)
-- [x] Gráfico de barras — Situação da Análise Suspensiva
-- [x] Tabela interativa com dados filtrados
+A data exibida em “Atualizado em” não usa a data do navegador. Ela é derivada dos metadados dos snapshots gerados no pipeline.
 
-### Etapa 4 — Build ✅
+## Stack
 
-- [x] Aplicar tema e estilos (CSS customizado em `src/theme.css`)
-- [x] `npm run build` executado com sucesso — 1 página, sem erros
+- Node.js 18+
+- Observable Framework
+- D3 / Observable Plot
+- Python com `uv`
+- SQLAlchemy + psycopg2
 
----
+## Observações Operacionais
 
-## Stack Técnica
-
-- **Observable Framework** (latest)
-- **Plot** (gráficos)
-- **Inputs** (filtros e tabela)
-- **d3-dsv** (parse do CSV com `;`)
-- CSS customizado (padrão Ministério das Cidades)
-
----
-
-## Referência
-
-Projeto base de estilo: `painel_planos_CGPAC` (mesma estrutura de config, tema, formatters).
+- `python/config.env` contém as credenciais locais de banco e não deve ser versionado.
+- `scripts/update.log` é apenas log local e não deve ser versionado.
+- `data/diff/` faz parte do fluxo oficial e deve acompanhar as atualizações quando houver mudança de dados.

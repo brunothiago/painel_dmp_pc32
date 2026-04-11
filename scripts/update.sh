@@ -44,6 +44,7 @@ DATA_PATHS=(
     "src/data/base_alteracoes.csv"
     "src/data/base_diff_latest.json"
     "data/historico"
+    "data/diff"
 )
 
 log "Iniciando atualização..."

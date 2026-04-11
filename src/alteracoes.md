@@ -90,21 +90,39 @@ const snapshotPrimeiroLabel = baseDiffLatest?.snapshot_primeiro
   ? formatDate(baseDiffLatest.snapshot_primeiro)
   : "primeiro registro";
 
-const updatedAt = new Intl.DateTimeFormat("pt-BR", {
-  day: "2-digit", month: "2-digit", year: "numeric",
-}).format(new Date());
+function maxSnapshotDateLabel(snapshotMeta) {
+  const candidates = [
+    snapshotMeta?.snapshot_atual,
+    snapshotMeta?.snapshot_anterior,
+    snapshotMeta?.snapshot_primeiro,
+  ]
+    .map(parseDate)
+    .filter((date) => date instanceof Date && !isNaN(date));
+
+  if (candidates.length === 0) return "—";
+
+  const maxDate = candidates.reduce((latest, current) =>
+    current.getTime() > latest.getTime() ? current : latest
+  );
+
+  return formatDate(maxDate);
+}
+
+const updatedAt = maxSnapshotDateLabel(baseDiffLatest);
 ```
 
 ```js
 const pageTitleBar = document.createElement("div");
-pageTitleBar.className = "page-titlebar";
+pageTitleBar.className = "page-titlebar dashboard-toolbar";
 pageTitleBar.innerHTML = `
-  <div class="page-titlebar__heading">
+  <div class="page-titlebar__heading dashboard-toolbar__title">
     <h1>Alteracoes desde ${snapshotPrimeiroLabel}</h1>
   </div>
-  <div class="page-titlebar__meta" aria-label="Data de atualizacao">
-    <span class="page-titlebar__meta-label">Atualizado em</span>
-    <strong class="page-titlebar__meta-value">${updatedAt}</strong>
+  <div class="page-titlebar__meta dashboard-toolbar__side" aria-label="Data de atualizacao">
+    <div class="dashboard-toolbar__meta">
+      <span class="page-titlebar__meta-label">Atualizado em</span>
+      <strong class="page-titlebar__meta-value">${updatedAt}</strong>
+    </div>
   </div>
 `;
 display(pageTitleBar);
