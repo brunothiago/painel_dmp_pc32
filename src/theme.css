@@ -2007,6 +2007,9 @@ body {
     .metrics-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
+    .metrics-grid--alteracoes {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
     .grid-three {
         grid-template-columns: 1fr;
     }
@@ -2060,6 +2063,9 @@ body {
     .metrics-grid,
     .grid-two {
         grid-template-columns: 1fr;
+    }
+    .metrics-grid--alteracoes {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
     .panel-card .metrics-grid {
         grid-template-columns: 1fr;
@@ -2717,6 +2723,10 @@ body {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 1rem;
     margin: 0 0 1.25rem;
+}
+
+.metrics-grid--alteracoes {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .metric-card {

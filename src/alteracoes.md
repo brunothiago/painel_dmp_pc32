@@ -142,13 +142,15 @@ const alterados = new Set(
 ).size;
 const removidos = alteracaoRows.filter(d => d.tipo === "Removido").length;
 
-display(metricGrid([
+const alteracoesMetricGrid = metricGrid([
   { label: "Empreendimentos com alteração", value: formatNumber(totalEmpreendimentos), tone: "default" },
   { label: "Total de alterações", value: formatNumber(totalAlteracoes), tone: "blue" },
   { label: "Novos", value: formatNumber(novos), tone: "green" },
   { label: "Alterados", value: formatNumber(alterados), tone: "gold" },
   { label: "Removidos", value: formatNumber(removidos), tone: "red" },
-]));
+]);
+alteracoesMetricGrid.classList.add("metrics-grid--alteracoes");
+display(alteracoesMetricGrid);
 ```
 
 <div class="filters-bar">
