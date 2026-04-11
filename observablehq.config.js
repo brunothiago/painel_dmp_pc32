@@ -4,7 +4,7 @@ export default {
   title: "Painel PC 32 — Novo PAC",
   root: "src",
   output: "dist",
-  theme: "air",
+  theme: [],
   sidebar: false,
   toc: false,
   pager: false,
