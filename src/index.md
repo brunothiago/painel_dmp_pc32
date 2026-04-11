@@ -519,6 +519,28 @@ display(clearFiltersButton);
 </div>
 
 ```js
+const filtrosAtivos = [
+  (filtros?.secretaria?.length > 0) ? {key: "secretaria", text: summarizeFilter("Secretaria", filtros.secretaria)} : null,
+  (filtros?.modalidade?.length > 0) ? {key: "modalidade", text: summarizeFilter("Modalidade", filtros.modalidade)} : null,
+  (filtros?.ano?.length > 0) ? {key: "ano", text: summarizeFilter("Ano", filtros.ano, "anos")} : null
+].filter(Boolean);
+
+const filtersSummary = html`<div class="filters-summary" style="${filtrosAtivos.length === 0 ? 'display:none' : ''}">
+  <span class="filters-summary__count">${filtrosAtivos.length} filtro${filtrosAtivos.length === 1 ? "" : "s"} ativo${filtrosAtivos.length === 1 ? "" : "s"}</span>
+</div>`;
+
+filtrosAtivos.forEach((item) => {
+  const chip = html`<button type="button" class="filters-summary__chip">${item.text}<span aria-hidden="true">×</span></button>`;
+  chip.addEventListener("click", () => {
+    filtrosInput.setState({...filtrosInput.value, [item.key]: []});
+  });
+  filtersSummary.append(chip);
+});
+
+display(filtersSummary);
+```
+
+```js
 const secretariaSelecionada = Array.isArray(filtros?.secretaria) ? filtros.secretaria : [];
 const modalidadeSelecionada = Array.isArray(filtros?.modalidade) ? filtros.modalidade : [];
 const anoSelecionado = Array.isArray(filtros?.ano) ? filtros.ano : [];
@@ -539,28 +561,6 @@ function summarizeFilter(label, values, pluralLabel = "selecionadas") {
   if (values.length === 0) return null;
   if (values.length <= 2) return `${label}: ${values.join(", ")}`;
   return `${label}: ${values.length} ${pluralLabel}`;
-}
-
-const filtrosAtivos = [
-  secretariaSelecionada.length > 0 ? {key: "secretaria", text: summarizeFilter("Secretaria", secretariaSelecionada)} : null,
-  modalidadeSelecionada.length > 0 ? {key: "modalidade", text: summarizeFilter("Modalidade", modalidadeSelecionada)} : null,
-  anoSelecionado.length > 0 ? {key: "ano", text: summarizeFilter("Ano", anoSelecionado, "anos")} : null
-].filter(Boolean);
-
-if (filtrosAtivos.length > 0) {
-  const summary = html`<div class="filters-summary">
-    <span class="filters-summary__count">${filtrosAtivos.length} filtro${filtrosAtivos.length === 1 ? "" : "s"} ativo${filtrosAtivos.length === 1 ? "" : "s"}</span>
-  </div>`;
-
-  filtrosAtivos.forEach((item) => {
-    const chip = html`<button type="button" class="filters-summary__chip">${item.text}<span aria-hidden="true">×</span></button>`;
-    chip.addEventListener("click", () => {
-      filtrosInput.setState({...filtrosInput.value, [item.key]: []});
-    });
-    summary.append(chip);
-  });
-
-  display(summary);
 }
 
 // ── baseData: filtros de topo
