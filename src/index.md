@@ -53,11 +53,11 @@ function parseBaseRow(d) {
   flag_homologacao_licitacao: d.flag_homologacao_licitacao,
   ultima_data_relevante: parseDate(d.ultima_data_relevante),
   fase_atual: d.fase_atual,
-  dias_ate_publicacao: d.dias_ate_publicacao ? +d.dias_ate_publicacao : null,
-  dias_publicacao_ate_homologacao: d.dias_publicacao_ate_homologacao ? +d.dias_publicacao_ate_homologacao : null,
-  dias_homologacao_ate_vrpl: d.dias_homologacao_ate_vrpl ? +d.dias_homologacao_ate_vrpl : null,
-  dias_vrpl_ate_aio: d.dias_vrpl_ate_aio ? +d.dias_vrpl_ate_aio : null,
-  dias_aio_ate_inicio_obra: d.dias_aio_ate_inicio_obra ? +d.dias_aio_ate_inicio_obra : null,
+  dias_ate_publicacao: d.dias_ate_publicacao === "" ? null : +d.dias_ate_publicacao,
+  dias_publicacao_ate_homologacao: d.dias_publicacao_ate_homologacao === "" ? null : +d.dias_publicacao_ate_homologacao,
+  dias_homologacao_ate_vrpl: d.dias_homologacao_ate_vrpl === "" ? null : +d.dias_homologacao_ate_vrpl,
+  dias_vrpl_ate_aio: d.dias_vrpl_ate_aio === "" ? null : +d.dias_vrpl_ate_aio,
+  dias_aio_ate_inicio_obra: d.dias_aio_ate_inicio_obra === "" ? null : +d.dias_aio_ate_inicio_obra,
   faixa_repasse: d.faixa_repasse,
   prazo_pub_licitacao: parseDate(d.prazo_pub_licitacao),
   status_pub_licitacao: d.status_pub_licitacao,
@@ -501,7 +501,7 @@ const filtros = view(filtrosInput);
 ```
 
 ```js
-const clearFiltersButton = html`<button type="button" class="filters-reset">Limpar filtros</button>`;
+const clearFiltersButton = html`<button type="button" class="filters-reset">Limpar filtros do topo</button>`;
 
 clearFiltersButton.addEventListener("click", () => {
   const searchInput = fConvenioInput.querySelector("input[type='search']");
@@ -952,132 +952,6 @@ function matchesLicitacaoSelection(d, selection = {}) {
   );
 }
 
-function renderLicitacaoFlow(data) {
-  const container = Object.assign(makeFlowElement("div", "casc-chart"), {
-    value: {pub_etapa: null, pub_prazo: null, homolog_etapa: null, homolog_prazo: null}
-  });
-
-  function setFilter(key, label) {
-    container.value = {
-      ...container.value,
-      [key]: container.value[key] === label ? null : label
-    };
-    render();
-    container.dispatchEvent(new Event("input", {bubbles: true}));
-  }
-
-  const clear = makeFlowElement("button", "casc-clear", "Limpar seleção");
-  clear.type = "button";
-  clear.hidden = true;
-  clear.addEventListener("click", () => {
-    container.value = {pub_etapa: null, pub_prazo: null, homolog_etapa: null, homolog_prazo: null};
-    render();
-    container.dispatchEvent(new Event("input", {bubbles: true}));
-  });
-
-  function render() {
-    container.innerHTML = "";
-    clear.hidden = !Object.values(container.value).some(Boolean);
-    container.append(clear);
-
-    const base = data
-      .filter(d => d.dt_retirada_suspensiva && d.situacao !== "Cancelado ou Distratado")
-      .filter(d => matchesLicitacaoSelection(d, container.value));
-
-    if (base.length === 0) {
-      container.append(makeFlowElement("p", "casc-empty", "Nenhum contrato corresponde à seleção atual na análise de licitação."));
-      return;
-    }
-
-    const aguardandoPublicacao = base.filter(d => !d.dt_pub_licitacao);
-    const publicadas = base.filter(d => d.dt_pub_licitacao);
-    container.append(
-      makeFlowLevel(
-        `${base.length.toLocaleString("pt-BR")} contratos com retirada de suspensiva`,
-        "por etapa da publicação da licitação",
-        [
-          { label: "Aguardando publicação", qtd: aguardandoPublicacao.length, color: LICITACAO_CORES["Aguardando publicação"] },
-          { label: "Publicada", qtd: publicadas.length, color: LICITACAO_CORES["Publicada"] },
-        ],
-        base.length,
-        {
-          filterKey: "pub_etapa",
-          selectedValue: container.value.pub_etapa,
-          onSelect: setFilter
-        }
-      )
-    );
-
-    if (aguardandoPublicacao.length > 0) {
-      container.append(makeFlowConnector("publicação até 120 dias após a retirada da suspensiva"));
-      container.append(
-        makeFlowLevel(
-          `${aguardandoPublicacao.length.toLocaleString("pt-BR")} contratos aguardando publicação`,
-          "por urgência do prazo de publicação",
-          LICITACAO_PRAZO_ORDER.map(label => ({
-            label,
-            qtd: aguardandoPublicacao.filter(d => d.status_pub_licitacao === label).length,
-            color: LICITACAO_CORES[label],
-          })),
-          aguardandoPublicacao.length,
-          {
-            filterKey: "pub_prazo",
-            selectedValue: container.value.pub_prazo,
-            onSelect: setFilter
-          }
-        )
-      );
-    }
-
-    if (publicadas.length > 0) {
-      const homologacaoPendente = publicadas.filter(d => !d.dt_homolog_licitacao);
-      const homologadas = publicadas.filter(d => d.dt_homolog_licitacao);
-
-      container.append(makeFlowConnector("homologação até 120 dias após a publicação"));
-      container.append(
-        makeFlowLevel(
-          `${publicadas.length.toLocaleString("pt-BR")} contratos com licitação publicada`,
-          "por etapa da homologação",
-          [
-            { label: "Homologação pendente", qtd: homologacaoPendente.length, color: LICITACAO_CORES["Homologação pendente"] },
-            { label: "Homologada", qtd: homologadas.length, color: LICITACAO_CORES["Homologada"] },
-          ],
-          publicadas.length,
-          {
-            filterKey: "homolog_etapa",
-            selectedValue: container.value.homolog_etapa,
-            onSelect: setFilter
-          }
-        )
-      );
-
-      if (homologacaoPendente.length > 0) {
-        container.append(makeFlowConnector("homologação pendente por urgência do prazo"));
-        container.append(
-          makeFlowLevel(
-            `${homologacaoPendente.length.toLocaleString("pt-BR")} contratos aguardando homologação`,
-            "por urgência do prazo de homologação",
-            LICITACAO_PRAZO_ORDER.map(label => ({
-              label,
-              qtd: homologacaoPendente.filter(d => d.status_homolog_licitacao === label).length,
-              color: LICITACAO_CORES[label],
-            })),
-            homologacaoPendente.length,
-            {
-              filterKey: "homolog_prazo",
-              selectedValue: container.value.homolog_prazo,
-              onSelect: setFilter
-            }
-          )
-        );
-      }
-    }
-  }
-
-  render();
-  return container;
-}
-
 function renderLicitacaoExplorer(data, previousData) {
   const initialFlow = {pub_etapa: null, pub_prazo: null, homolog_etapa: null, homolog_prazo: null};
   const container = Object.assign(makeFlowElement("div", "licitacao-explorer"), {
@@ -1353,11 +1227,15 @@ const total = data.length;
 const comSuspensiva = data.filter(d => d.situacao === "Contratado - Suspensiva").length;
 const semSuspensiva = data.filter(d => d.situacao === "Contratado - Normal").length;
 const vlrTotal = data.reduce((s, d) => s + d.vlr_repasse, 0);
-const previousTotal = previousDataSemGeo.length;
+const previousTotal = previousData.length;
 const previousComSuspensiva = previousData.filter(d => d.situacao === "Contratado - Suspensiva").length;
 const previousSemSuspensiva = previousData.filter(d => d.situacao === "Contratado - Normal").length;
 const previousVlrTotal = previousData.reduce((s, d) => s + d.vlr_repasse, 0);
 const pctSuspensiva = data.length > 0 ? comSuspensiva / data.length : 0;
+const pctSemSuspensiva = data.length > 0 ? semSuspensiva / data.length : 0;
+const drillDetail = secretariaDrillSelection == null
+  ? "do recorte principal"
+  : `do recorte de ${secretariaDrillLabel.toLowerCase()} ${secretariaDrillSelection}`;
 ```
 
 ```js
@@ -1366,11 +1244,12 @@ display(metricGrid([
     label: "Total selecionadas",
     value: formatNumber(total),
     delta: buildMetricDelta(total, previousTotal),
+    detail: drillDetail,
     tone: "default"
   },
-  { label: "Com suspensiva", value: formatNumber(comSuspensiva), detail: formatPercent(pctSuspensiva) + " do recorte do gráfico", delta: buildMetricDelta(comSuspensiva, previousComSuspensiva), tone: "gold" },
-  { label: "Sem suspensiva (Normal)", value: formatNumber(semSuspensiva), detail: formatPercent(data.length > 0 ? semSuspensiva / data.length : 0) + " do recorte do gráfico", delta: buildMetricDelta(semSuspensiva, previousSemSuspensiva), tone: "green" },
-  { label: "Valor total de repasse", value: formatCurrencyCompact(vlrTotal), delta: buildMetricDelta(vlrTotal, previousVlrTotal, formatCurrencyDelta), tone: "blue" },
+  { label: "Com suspensiva", value: formatNumber(comSuspensiva), detail: `${formatPercent(pctSuspensiva)} ${drillDetail}`, delta: buildMetricDelta(comSuspensiva, previousComSuspensiva), tone: "gold" },
+  { label: "Sem suspensiva (Normal)", value: formatNumber(semSuspensiva), detail: `${formatPercent(pctSemSuspensiva)} ${drillDetail}`, delta: buildMetricDelta(semSuspensiva, previousSemSuspensiva), tone: "green" },
+  { label: "Valor total de repasse", value: formatCurrencyCompact(vlrTotal), detail: drillDetail, delta: buildMetricDelta(vlrTotal, previousVlrTotal, formatCurrencyDelta), tone: "blue" },
 ]));
 ```
 
@@ -1634,8 +1513,9 @@ if (inicioPrazoVencidoSelecionado > 0 || inicioProx10Selecionado > 0) {
 
 ```js
 const PAGE_SIZE = 50;
+const hasCascadeSelection = Object.values(selectedCascade ?? {}).some(Boolean);
 const tableData = geoScopedData.filter(d =>
-  matchesCascadeSelection(d, selectedCascade) &&
+  (!hasCascadeSelection || matchesCascadeSelection(d, selectedCascade)) &&
   matchesLicitacaoSelection(d, selectedLicitacao) &&
   matchesCasaCivilSelection(d, selectedCasaCivil) &&
   matchesInicioObraSelection(d, selectedInicioObra)
