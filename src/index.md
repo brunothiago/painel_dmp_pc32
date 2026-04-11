@@ -1339,15 +1339,6 @@ const secretariaDrillMarginLeft = secretariaDrillField === "secretaria" ? 90 : 2
 ```
 
 ```js
-const selectedSecretariaDrill = view(renderSecretariaOverview(
-  dataBaseSemGeo,
-  secretariaDrillField,
-  secretariaDrillLabel,
-  secretariaDrillMarginLeft
-));
-```
-
-```js
 const secretariaDrillSelection = normalizeDrillSelection(selectedSecretariaDrill);
 
 const dataSemGeo = dataBaseSemGeo.filter(d =>
@@ -1381,6 +1372,15 @@ display(metricGrid([
   { label: "Sem suspensiva (Normal)", value: formatNumber(semSuspensiva), detail: formatPercent(data.length > 0 ? semSuspensiva / data.length : 0) + " do recorte do gráfico", delta: buildMetricDelta(semSuspensiva, previousSemSuspensiva), tone: "green" },
   { label: "Valor total de repasse", value: formatCurrencyCompact(vlrTotal), delta: buildMetricDelta(vlrTotal, previousVlrTotal, formatCurrencyDelta), tone: "blue" },
 ]));
+```
+
+```js
+const selectedSecretariaDrill = view(renderSecretariaOverview(
+  dataBaseSemGeo,
+  secretariaDrillField,
+  secretariaDrillLabel,
+  secretariaDrillMarginLeft
+));
 ```
 
 <div class="grid-two">
