@@ -610,14 +610,13 @@
     box-shadow: 0 22px 60px rgba(20,31,39,0.06);
     padding: 1.1rem 1rem;
     position: relative;
-    overflow: hidden;
 }
 
 .metric-card::before {
     content: "";
     position: absolute;
-    inset: 0 0 auto;
-    height: 4px;
+    inset: -1px -1px auto;
+    height: 5px;
     border-radius: 22px 22px 0 0;
     background: linear-gradient(90deg, rgba(47,107,79,0.9), rgba(200,154,43,0.9));
 }

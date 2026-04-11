@@ -184,9 +184,9 @@ def _build_detail_rows(
                 "categoria_alteracao": "novo_registro",
                 "num_convenio": key,
                 "cod_tci": _normalize(row.get("cod_tci")),
-                "campo": "",
+                "campo": "vlr_repasse",
                 "valor_anterior": "",
-                "valor_atual": "",
+                "valor_atual": _normalize(row.get("vlr_repasse")),
             }
         )
 
@@ -199,8 +199,8 @@ def _build_detail_rows(
                 "categoria_alteracao": "registro_removido",
                 "num_convenio": key,
                 "cod_tci": _normalize(row.get("cod_tci")),
-                "campo": "",
-                "valor_anterior": "",
+                "campo": "vlr_repasse",
+                "valor_anterior": _normalize(row.get("vlr_repasse")),
                 "valor_atual": "",
             }
         )
@@ -274,9 +274,9 @@ def _build_cumulative_diff(history_dir: Path) -> list[dict[str, str]]:
                 "cod_tci": _normalize(row.get("cod_tci")),
                 "uf": _normalize(row.get("txt_uf")),
                 "secretaria": _normalize(row.get("txt_sigla_secretaria")),
-                "campo": "",
+                "campo": "vlr_repasse",
                 "valor_anterior": "",
-                "valor_atual": "",
+                "valor_atual": _normalize(row.get("vlr_repasse")),
             })
 
         for key in sorted(prev_keys - curr_keys):
@@ -288,8 +288,8 @@ def _build_cumulative_diff(history_dir: Path) -> list[dict[str, str]]:
                 "cod_tci": _normalize(row.get("cod_tci")),
                 "uf": _normalize(row.get("txt_uf")),
                 "secretaria": _normalize(row.get("txt_sigla_secretaria")),
-                "campo": "",
-                "valor_anterior": "",
+                "campo": "vlr_repasse",
+                "valor_anterior": _normalize(row.get("vlr_repasse")),
                 "valor_atual": "",
             })
 
