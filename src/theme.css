@@ -5,7 +5,7 @@
 #observablehq-main,
 #observablehq-footer,
 #observablehq-header {
-    background: transparent;
+    background: transparent !important;
 }
 
 .observablehq a {
@@ -47,21 +47,24 @@
     max-width: none;
 }
 
-/* Header */
+/* Header — !important necessário para sobrescrever o CSS base do framework,
+   que em dev mode carrega depois do custom CSS */
 #observablehq-header {
-    border-bottom: none;
-    position: sticky;
-    top: 0;
-    height: auto;
-    padding: 0;
-    background: transparent;
+    border-bottom: none !important;
+    position: sticky !important;
+    top: 0 !important;
+    left: auto !important;
+    right: auto !important;
+    height: auto !important;
+    padding: 0 !important;
+    background: transparent !important;
     z-index: 1000;
     display: block;
     margin: 0;
 }
 
 #observablehq-header ~ #observablehq-main {
-    margin-top: 0;
+    margin-top: 0 !important;
 }
 
 .site-shell {
