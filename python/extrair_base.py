@@ -141,7 +141,7 @@ base AS (
         END AS prazo_inicio_obra
 
     FROM se_saci.view_mat_carteira_investimento tci
-    LEFT JOIN semob.tab_thiago_pbi_caixa pbi
+    LEFT JOIN semob.tab_thiago_pbi_caixa_ogu pbi
         ON tci.num_convenio::numeric = pbi.instrumento::numeric
     LEFT JOIN mcid_bd_gestores.tab_dados_basicos tdb
         ON tci.num_convenio = tdb.cod_convenio_siafi

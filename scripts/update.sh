@@ -48,6 +48,14 @@ DATA_PATHS=(
 )
 
 log "Iniciando atualização..."
+
+log "Subindo arquivos para o banco..."
+if ! uv run --project python python/subir_arquivo_generico.py >> "$LOG_FILE" 2>&1; then
+    log "ERRO: Falha no upload dos arquivos para o banco"
+    exit 1
+fi
+log "Upload concluído"
+
 if ! uv run --project python python/extrair_base.py >> "$LOG_FILE" 2>&1; then
     log "ERRO: Falha na extração de dados"
     exit 1
