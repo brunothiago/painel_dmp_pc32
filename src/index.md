@@ -1777,7 +1777,7 @@ display(renderBaseDataTable({
   columns: activeColumns,
   headers: {
     _diff_label: "Alteração", num_convenio: "Convênio", cod_tci: "TCI", secretaria: "Secretaria",
-    uf: "UF", municipio: "Município",
+    regiao: "Região", uf: "UF", municipio: "Município",
     fase: "Fase", modalidade: "Modalidade", situacao: "Situação Contrato",
     situacao_suspensiva: "Situação Suspensiva",
     dt_vencimento_suspensiva: "Venc. Suspensiva", dt_retirada_suspensiva: "Retirada Suspensiva",
