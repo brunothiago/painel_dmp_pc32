@@ -72,12 +72,12 @@ export const URGENCIA_CORES = {
 
 // Cores do bloco de licitação (paleta verde — do claro ao escuro)
 export const LICITACAO_CORES = {
-  "Aguardando publicação": "#a7f3d0",
+  "Aguardando publicação": "#86efac",
   "Publicada": "#34d399",
   "Homologação pendente": "#6ee7b7",
   "Homologada": "#10b981",
   "Vencida": "#064e3b",
-  "Próximos 30 dias": "#34d399",
+  "Próximos 30 dias": "#fbbf24",
   "No prazo": "#a7f3d0",
   "Cumpriu": "#10b981",
   "Não cumpriu": "#064e3b",

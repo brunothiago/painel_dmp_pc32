@@ -12,6 +12,7 @@ import {metricGrid} from "./components/cards.js";
 import {cascadeChart, matchesCascadeSelection} from "./components/cascade-chart.js";
 import {parseDate, formatNumber, formatCurrencyCompact, formatPercent, formatDate} from "./lib/formatters.js";
 import {PALETTE, SITUACAO_CORES, SUSPENSIVA_CORES, SITUACAO_ORDER, SUSPENSIVA_ORDER, LICITACAO_CORES, INICIO_OBRA_CORES, REGIAO_CORES, REGIAO_ORDER, GEO_FALLBACK_COLORS} from "./lib/theme.js";
+import {hexToRgba} from "./lib/dom-helpers.js";
 
 const rawText = await FileAttachment("data/base_pc_32.csv").text();
 const previousRawText = await FileAttachment("data/base_pc_32_previous.csv").text();
@@ -94,7 +95,6 @@ function diffLabel(value) {
 }
 
 const previousByKey = new Map(previousRawData.map(d => [rowKey(d), d]));
-const currentKeys = new Set(rawDataParsed.map(d => rowKey(d)));
 
 const rawData = rawDataParsed.map(d => {
   const key = rowKey(d);
@@ -641,11 +641,11 @@ function makeCrossFilteredCharts(data, previousBaseData, drillField, drillLabel,
       applyFilter(d, "situacao", sitSel) &&
       applyFilter(d, drillField, drillSel)
     );
-    const suspCounts = d3.rollup(
-      forSuspensiva.filter(d => d.situacao_suspensiva && d.situacao_suspensiva.trim() !== ""),
-      v => v.length,
-      d => d.situacao_suspensiva
-    );
+    const suspCounts = new Map();
+    for (const d of forSuspensiva) {
+      const s = d.situacao_suspensiva;
+      if (s && s.trim() !== "") suspCounts.set(s, (suspCounts.get(s) ?? 0) + 1);
+    }
     const bySuspensiva = SUSPENSIVA_ORDER
       .map(s => ({situacao_suspensiva: s, qtd: suspCounts.get(s) ?? 0}))
       .filter(d => d.qtd > 0);
@@ -898,7 +898,11 @@ function colorForGeoLabel(label, index) {
 }
 
 function buildGeoBreakdown(rows, field, order) {
-  const counts = d3.rollup(rows, (values) => values.length, (row) => normalizeGeoLabel(row[field]));
+  const counts = new Map();
+  for (const row of rows) {
+    const label = normalizeGeoLabel(row[field]);
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
   const items = [...counts.entries()]
     .map(([label, qtd], index) => ({label, qtd, color: colorForGeoLabel(label, index)}));
   if (order) {
@@ -1008,16 +1012,6 @@ function makeFlowElement(tag, className, text) {
   if (className) node.className = className;
   if (text !== undefined) node.textContent = text;
   return node;
-}
-
-function hexToRgba(hex, alpha) {
-  const normalized = hex?.replace("#", "");
-  if (!normalized || normalized.length !== 6) return `rgba(53,108,140,${alpha})`;
-  const int = Number.parseInt(normalized, 16);
-  const r = (int >> 16) & 255;
-  const g = (int >> 8) & 255;
-  const b = int & 255;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 function applyActiveChipColor(chip, color) {
@@ -1640,7 +1634,7 @@ const tableData = geoScopedData.filter(d =>
 );
 
 const exportColumns = [
-  "_diff_label", "num_convenio", "cod_tci", "secretaria", "uf", "municipio", "fase", "modalidade",
+  "_diff_label", "num_convenio", "cod_tci", "secretaria", "regiao", "uf", "municipio", "fase", "modalidade",
   "situacao", "situacao_suspensiva", "dt_assinatura", "dt_vencimento_suspensiva",
   "dt_retirada_suspensiva", "dt_lae", "data_limite_licitacao_casa_civil", "status_regra_casa_civil", "prazo_pub_licitacao", "status_pub_licitacao",
   "dt_pub_licitacao", "prazo_homolog_licitacao", "status_homolog_licitacao", "dt_homolog_licitacao",
@@ -1651,6 +1645,7 @@ const exportHeaders = {
   num_convenio: "Convênio",
   cod_tci: "TCI",
   secretaria: "Secretaria",
+  regiao: "Região",
   uf: "UF",
   municipio: "Município",
   fase: "Fase",

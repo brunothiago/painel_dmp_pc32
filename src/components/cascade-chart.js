@@ -1,4 +1,5 @@
 import {SITUACAO_CORES, SUSPENSIVA_CORES, SITUACAO_ORDER, SUSPENSIVA_ORDER, URGENCIA_CORES, PALETTE} from "../lib/theme.js";
+import {hexToRgba} from "../lib/dom-helpers.js";
 
 const URGENCIA_ORDER = ["Vencida", "Próximos 30 dias", "31–90 dias", "Mais de 90 dias", "Sem data"];
 
@@ -107,16 +108,6 @@ function connector(label) {
   lbl.textContent = label;
   wrap.append(line, lbl);
   return wrap;
-}
-
-function hexToRgba(hex, alpha) {
-  const normalized = hex?.replace("#", "");
-  if (!normalized || normalized.length !== 6) return `rgba(53,108,140,${alpha})`;
-  const int = Number.parseInt(normalized, 16);
-  const r = (int >> 16) & 255;
-  const g = (int >> 8) & 255;
-  const b = int & 255;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 function styleActiveChip(chip, color) {
