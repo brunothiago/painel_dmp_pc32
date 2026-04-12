@@ -72,8 +72,8 @@ export const URGENCIA_CORES = {
 
 // Cores do bloco de licitação (paleta verde — do claro ao escuro)
 export const LICITACAO_CORES = {
-  "Aguardando publicação": "#6ee7b7",
-  "Publicada": "#10b981",
+  "Aguardando publicação": "#a7f3d0",
+  "Publicada": "#34d399",
   "Homologação pendente": "#6ee7b7",
   "Homologada": "#10b981",
   "Vencida": "#064e3b",
@@ -92,3 +92,19 @@ export const INICIO_OBRA_CORES = {
   "Próximos 10 dias úteis": "#3b82f6",
   "Prazo vencido": "#1e3a5f",
 };
+
+// Cores por região geográfica
+export const REGIAO_CORES = {
+  "Norte": "#7c3aed",
+  "Nordeste": "#c2410c",
+  "Sudeste": "#0f766e",
+  "Sul": "#2563eb",
+  "Centro-Oeste": "#b45309",
+  "Não informado": "#64748b",
+};
+
+// Ordem convencional das regiões brasileiras
+export const REGIAO_ORDER = ["Norte", "Nordeste", "Sudeste", "Sul", "Centro-Oeste", "Não informado"];
+
+// Cores fallback para UFs (quando não há cor de região)
+export const GEO_FALLBACK_COLORS = ["#0f766e", "#2563eb", "#7c3aed", "#c2410c", "#b45309", "#be123c", "#0369a1", "#4d7c0f"];

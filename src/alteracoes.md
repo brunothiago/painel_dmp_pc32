@@ -8,17 +8,11 @@ import {dsvFormat} from "d3-dsv";
 import {html} from "htl";
 import {metricGrid} from "./components/cards.js";
 import {renderAlteracoesDataTable} from "./components/alteracoes-table.js";
-import {formatNumber, formatDate} from "./lib/formatters.js";
+import {parseDate, formatNumber, formatDate} from "./lib/formatters.js";
 
 const changesRawText = await FileAttachment("data/base_alteracoes.csv").text();
 const baseDiffLatest = await FileAttachment("data/base_diff_latest.json").json();
 const dsv = dsvFormat(";");
-
-function parseDate(v) {
-  if (!v) return null;
-  const d = new Date(`${v}T12:00:00Z`);
-  return isNaN(d) ? null : d;
-}
 
 function parseChangeRow(d) {
   return {

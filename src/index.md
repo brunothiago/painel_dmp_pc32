@@ -10,19 +10,13 @@ import {dsvFormat} from "d3-dsv";
 import {renderBaseDataTable} from "./components/base-data-table.js";
 import {metricGrid} from "./components/cards.js";
 import {cascadeChart, matchesCascadeSelection} from "./components/cascade-chart.js";
-import {formatNumber, formatCurrencyCompact, formatPercent, formatDate} from "./lib/formatters.js";
-import {PALETTE, SITUACAO_CORES, SUSPENSIVA_CORES, SITUACAO_ORDER, SUSPENSIVA_ORDER, LICITACAO_CORES, INICIO_OBRA_CORES} from "./lib/theme.js";
+import {parseDate, formatNumber, formatCurrencyCompact, formatPercent, formatDate} from "./lib/formatters.js";
+import {PALETTE, SITUACAO_CORES, SUSPENSIVA_CORES, SITUACAO_ORDER, SUSPENSIVA_ORDER, LICITACAO_CORES, INICIO_OBRA_CORES, REGIAO_CORES, REGIAO_ORDER, GEO_FALLBACK_COLORS} from "./lib/theme.js";
 
 const rawText = await FileAttachment("data/base_pc_32.csv").text();
 const previousRawText = await FileAttachment("data/base_pc_32_previous.csv").text();
 const baseDiffLatest = await FileAttachment("data/base_diff_latest.json").json();
 const dsv = dsvFormat(";");
-
-function parseDate(v) {
-  if (!v) return null;
-  const d = new Date(`${v}T12:00:00Z`);
-  return isNaN(d) ? null : d;
-}
 
 function parseBaseRow(d) {
   return {
@@ -893,15 +887,6 @@ function makeCrossFilteredCharts(data, previousBaseData, drillField, drillLabel,
 }
 
 const GEO_EMPTY_LABEL = "Não informado";
-const REGIAO_COLORS = {
-  "Nordeste": "#c2410c",
-  "Sudeste": "#0f766e",
-  "Norte": "#7c3aed",
-  "Sul": "#2563eb",
-  "Centro-Oeste": "#b45309",
-  [GEO_EMPTY_LABEL]: "#64748b",
-};
-const GEO_FALLBACK_COLORS = ["#0f766e", "#2563eb", "#7c3aed", "#c2410c", "#b45309", "#be123c", "#0369a1", "#4d7c0f"];
 
 function normalizeGeoLabel(value) {
   const normalized = typeof value === "string" ? value.trim() : "";
@@ -909,14 +894,18 @@ function normalizeGeoLabel(value) {
 }
 
 function colorForGeoLabel(label, index) {
-  return REGIAO_COLORS[label] ?? GEO_FALLBACK_COLORS[index % GEO_FALLBACK_COLORS.length];
+  return REGIAO_CORES[label] ?? GEO_FALLBACK_COLORS[index % GEO_FALLBACK_COLORS.length];
 }
 
-function buildGeoBreakdown(rows, field) {
+function buildGeoBreakdown(rows, field, order) {
   const counts = d3.rollup(rows, (values) => values.length, (row) => normalizeGeoLabel(row[field]));
-  return [...counts.entries()]
-    .map(([label, qtd], index) => ({label, qtd, color: colorForGeoLabel(label, index)}))
-    .sort((a, b) => b.qtd - a.qtd || a.label.localeCompare(b.label, "pt-BR"));
+  const items = [...counts.entries()]
+    .map(([label, qtd], index) => ({label, qtd, color: colorForGeoLabel(label, index)}));
+  if (order) {
+    const idx = new Map(order.map((v, i) => [v, i]));
+    return items.sort((a, b) => (idx.get(a.label) ?? 999) - (idx.get(b.label) ?? 999));
+  }
+  return items.sort((a, b) => b.qtd - a.qtd || a.label.localeCompare(b.label, "pt-BR"));
 }
 
 function matchesGeoSelection(d, selection = {}) {
@@ -958,7 +947,7 @@ function makeGeoCascade(rows) {
     );
     if (active) wrap.append(active);
 
-    const regiaoData = buildGeoBreakdown(rows, "regiao");
+    const regiaoData = buildGeoBreakdown(rows, "regiao", REGIAO_ORDER);
     const total = rows.length;
 
     wrap.append(
@@ -1039,7 +1028,7 @@ function applyActiveChipColor(chip, color) {
 }
 
 function colorForGeoChip(label) {
-  const direct = REGIAO_COLORS[label];
+  const direct = REGIAO_CORES[label];
   if (direct) return direct;
   const hash = [...String(label)].reduce((acc, char) => acc + char.charCodeAt(0), 0);
   return GEO_FALLBACK_COLORS[hash % GEO_FALLBACK_COLORS.length];
@@ -1447,7 +1436,7 @@ const selectedSituacao = selectedCharts?.situacao ?? null;
 const selectedSuspensiva = selectedCharts?.suspensiva ?? null;
 const secretariaDrillSelection = normalizeDrillSelection(selectedCharts?.drill ?? null);
 
-const dataSemGeo = baseData.filter(d =>
+const preGeoData = baseData.filter(d =>
   (selectedSituacao == null || d.situacao === selectedSituacao) &&
   (selectedSuspensiva == null || d.situacao_suspensiva === selectedSuspensiva) &&
   (secretariaDrillSelection == null || d[secretariaDrillField] === secretariaDrillSelection)
@@ -1458,7 +1447,6 @@ const previousData = previousBaseData.filter(d =>
   (selectedSuspensiva == null || d.situacao_suspensiva === selectedSuspensiva) &&
   (secretariaDrillSelection == null || d[secretariaDrillField] === secretariaDrillSelection)
 );
-const data = dataSemGeo;
 ```
 
 <div class="card">
@@ -1468,13 +1456,13 @@ const data = dataSemGeo;
 <p>Clique em uma região para abrir os estados; esse recorte passa a valer para os blocos abaixo.</p>
 
 ```js
-const selectedGeo = view(makeGeoCascade(dataSemGeo));
+const selectedGeo = view(makeGeoCascade(preGeoData));
 ```
 
 </div>
 
 ```js
-const geoScopedData = data.filter(d => matchesGeoSelection(d, selectedGeo));
+const geoScopedData = preGeoData.filter(d => matchesGeoSelection(d, selectedGeo));
 const geoScopedPreviousData = previousData.filter(d => matchesGeoSelection(d, selectedGeo));
 ```
 

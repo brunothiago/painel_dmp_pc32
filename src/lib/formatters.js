@@ -1,3 +1,9 @@
+export function parseDate(v) {
+  if (!v) return null;
+  const d = new Date(`${v}T12:00:00Z`);
+  return isNaN(d) ? null : d;
+}
+
 const numberFormatter = new Intl.NumberFormat("pt-BR");
 const currencyCompactFormatter = new Intl.NumberFormat("pt-BR", {
   style: "currency",
