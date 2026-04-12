@@ -85,8 +85,8 @@ base AS (
         CASE WHEN pl.dte_publicacao_licitacao IS NOT NULL THEN 'SIM' ELSE 'NAO' END AS flag_publicacao_licitacao,
         CASE WHEN hl.dte_homologacao_licitacao IS NOT NULL THEN 'SIM' ELSE 'NAO' END AS flag_homologacao_licitacao,
 
-        -- ultima_data_relevante
-        coalesce(
+        -- ultima_data_relevante (maior data entre os marcos atingidos)
+        greatest(
             tci.dte_inicio_obra_mcid, tdb.dte_aio, tdb.dte_vrpl,
             hl.dte_homologacao_licitacao, pl.dte_publicacao_licitacao,
             tdb.dte_primeira_data_lae

@@ -281,6 +281,7 @@ const fConvenio = view(fConvenioInput);
 ```js
 function makeMultiPicker(labelText, options, selectedValues = [], allLabel = "Todas", selectedLabel = "selecionadas") {
   const selected = new Set(selectedValues.filter(value => options.includes(value)));
+  const ac = new AbortController();
   const wrap = Object.assign(document.createElement("div"), { value: [...selected] });
   wrap.className = "multi-picker";
 
@@ -370,7 +371,9 @@ function makeMultiPicker(labelText, options, selectedValues = [], allLabel = "To
 
   document.addEventListener("click", (event) => {
     if (!wrap.contains(event.target)) closePanel();
-  });
+  }, {signal: ac.signal});
+
+  wrap.destroy = () => ac.abort();
 
   actions.append(selectAll, clearAll);
   grid.append(...chips);
@@ -445,6 +448,7 @@ function makeCascadeFilters(data) {
 
   function render() {
     const options = computeCascadeOptions(data, state);
+    wrap.querySelectorAll(".multi-picker").forEach(p => p.destroy?.());
     wrap.replaceChildren();
 
     const configs = [
