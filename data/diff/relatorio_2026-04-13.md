@@ -9,8 +9,8 @@
 
 - Entraram na base: **0**
 - Saíram da base: **0**
-- Registros com alguma alteração: **82**
-- Registros com mudança de dados de origem: **81**
+- Registros com alguma alteração: **84**
+- Registros com mudança de dados de origem: **83**
 - Registros com mudança apenas em campos derivados/status: **1**
 
 ## Mudanças por status
@@ -18,7 +18,7 @@
 - `status_suspensiva`: **2**
 - `status_pub_licitacao`: **7**
 - `status_homolog_licitacao`: **8**
-- `status_inicio_obra`: **4**
+- `status_inicio_obra`: **5**
 - `status_regra_casa_civil`: **1**
 - `urgencia_suspensiva`: **11**
 - `fase_atual`: **13**

@@ -8,15 +8,15 @@
   "resumo": {
     "entered": 0,
     "exited": 0,
-    "changed_records": 82,
-    "changed_data_records": 81,
+    "changed_records": 84,
+    "changed_data_records": 83,
     "changed_time_records": 1
   },
   "mudancas_status": {
     "status_suspensiva": 2,
     "status_pub_licitacao": 7,
     "status_homolog_licitacao": 8,
-    "status_inicio_obra": 4,
+    "status_inicio_obra": 5,
     "status_regra_casa_civil": 1,
     "urgencia_suspensiva": 11,
     "fase_atual": 13
