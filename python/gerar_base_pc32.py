@@ -1,9 +1,9 @@
 """
-Extrai dados da view PostgreSQL e salva como CSV.
+Gera a base PC 32 consultando o PostgreSQL e salva os CSVs do painel.
 
 Uso:
   1. Preencha o arquivo config.env com as credenciais do banco
-  2. uv run extrair_base.py
+  2. uv run gerar_base_pc32.py
 """
 
 import csv
@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL
 
-from base_snapshot_diff import generate_daily_snapshot_diff
+from comparar_snapshots_base import generate_daily_snapshot_diff
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "config.env"))
 

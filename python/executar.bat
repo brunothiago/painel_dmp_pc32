@@ -6,5 +6,5 @@ echo Para o fluxo completo de atualizacao e publicacao, use:
 echo   scripts\update.bat
 echo.
 cd /d "%~dp0"
-uv run extrair_base.py
+uv run gerar_base_pc32.py
 pause
