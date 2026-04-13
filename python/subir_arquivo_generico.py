@@ -30,12 +30,9 @@ URLS_E_TABELAS_ENV = [
 
 SCHEMA_PADRAO = "semob"
 
-USUARIOS_PERMISSAO = [
-    # "ana.silva",
-    # "sys.saci",
-    "thiago.azevedo",
-    # "vitor.bastos",
-]
+# Usuários que receberão GRANT nas tabelas carregadas.
+# Configurável via DB_USUARIOS_PERMISSAO no config.env (lista separada por vírgula).
+# Vazio = nenhum GRANT.
 
 COLUNAS_FORCAR_STRING = [
     "proposta_nu",
@@ -548,6 +545,14 @@ def main():
 
     modo_carga = "append" if args.append else "replace"
 
+    usuarios_permissao = [
+        u.strip()
+        for u in (os.getenv("DB_USUARIOS_PERMISSAO") or "").split(",")
+        if u.strip()
+    ]
+    if usuarios_permissao:
+        print(f"[INFO] Usuários para GRANT: {usuarios_permissao}")
+
     print(f"Iniciando processamento de {len(lista_execucao)} arquivos...")
 
     try:
@@ -558,7 +563,7 @@ def main():
                 table_name=tname,
                 schema=args.schema,
                 modo_carga=modo_carga,
-                usuarios=USUARIOS_PERMISSAO,
+                usuarios=usuarios_permissao,
             )
     finally:
         if tmp_dir_ctx is not None:
