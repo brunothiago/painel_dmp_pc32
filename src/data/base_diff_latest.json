@@ -8,17 +8,16 @@
   "resumo": {
     "entered": 0,
     "exited": 0,
-    "changed_records": 1528,
-    "changed_data_records": 18,
-    "changed_time_records": 1510
+    "changed_records": 1065,
+    "changed_data_records": 0,
+    "changed_time_records": 1065
   },
   "mudancas_status": {
-    "status_suspensiva_calc": 5,
-    "status_pub_licitacao_calc": 858,
-    "status_homolog_licitacao_calc": 523,
-    "status_inicio_obra_calc": 0,
-    "status_regra_casa_civil_calc": 1528,
-    "urgencia_suspensiva_calc": 5,
-    "fase_atual_calc": 7
+    "status_suspensiva_calc": 19,
+    "status_pub_licitacao_calc": 862,
+    "status_homolog_licitacao_calc": 527,
+    "status_inicio_obra_calc": 32,
+    "urgencia_suspensiva_calc": 56,
+    "fase_atual_calc": 93
   }
 }

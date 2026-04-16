@@ -107,6 +107,7 @@ TIME_DRIVEN_FIELDS = {
 
 IGNORED_CHANGE_FIELDS = {
     "data_limite_licitacao_casa_civil_const",
+    "status_regra_casa_civil_calc",
 }
 
 SUMMARY_STATUS_FIELDS = [
