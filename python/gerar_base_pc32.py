@@ -160,7 +160,7 @@ SELECT
     base.*,
 
     -- data limite casa civil | fonte: constante fixa
-    '2026-03-31'::date AS data_limite_licitacao_casa_civil_const,
+    '2026-06-01'::date AS data_limite_licitacao_casa_civil_const,
 
     -- status regra casa civil | fonte: derivada de base.dsc_situacao_contrato_mcid + base.dte_publicacao_licitacao + base.dte_homologacao_licitacao + base.dte_inicio_obra_mcid
     CASE
