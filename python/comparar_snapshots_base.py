@@ -12,6 +12,51 @@ import shutil
 KEY_FIELD = "num_convenio_tci"
 FALLBACK_KEY_FIELD = "cod_tci_tci"
 
+FIELD_ALIASES = {
+    "cod_tci": "cod_tci_tci",
+    "num_convenio": "num_convenio_tci",
+    "txt_uf": "txt_uf_tci",
+    "txt_regiao": "txt_regiao_tci",
+    "cod_ibge_7dig": "cod_ibge_7dig_tci",
+    "txt_municipio": "txt_municipio_tci",
+    "dsc_objeto_instrumento": "dsc_objeto_instrumento_tci",
+    "txt_sigla_secretaria": "txt_sigla_secretaria_tci",
+    "dsc_fase_pac": "dsc_fase_pac_tci",
+    "txt_modalidade": "txt_modalidade_tci",
+    "dsc_situacao_contrato_mcid": "dsc_situacao_contrato_mcid_tci",
+    "dte_assinatura_contrato": "dte_assinatura_contrato_tci",
+    "situacao_da_analise_suspensiva": "situacao_da_analise_suspensiva_pbi",
+    "vencimento_da_suspensiva": "vencimento_da_suspensiva_pbi",
+    "dte_retirada_suspensiva": "dte_retirada_suspensiva_tgov",
+    "dte_primeira_data_lae": "dte_primeira_data_lae_tdb",
+    "dte_publicacao_licitacao": "dte_publicacao_licitacao_tgov",
+    "dte_homologacao_licitacao": "dte_homologacao_licitacao_tgov",
+    "dte_vrpl": "dte_vrpl_tdb",
+    "dte_aio": "dte_aio_tdb",
+    "dte_inicio_obra_mcid": "dte_inicio_obra_mcid_tci",
+    "vlr_repasse": "vlr_repasse_tci",
+    "status_suspensiva": "status_suspensiva_calc",
+    "flag_publicacao_licitacao": "flag_publicacao_licitacao_calc",
+    "flag_homologacao_licitacao": "flag_homologacao_licitacao_calc",
+    "ultima_data_relevante": "ultima_data_relevante_calc",
+    "fase_atual": "fase_atual_calc",
+    "dias_ate_publicacao": "dias_ate_publicacao_calc",
+    "dias_publicacao_ate_homologacao": "dias_publicacao_ate_homologacao_calc",
+    "dias_homologacao_ate_vrpl": "dias_homologacao_ate_vrpl_calc",
+    "dias_vrpl_ate_aio": "dias_vrpl_ate_aio_calc",
+    "dias_aio_ate_inicio_obra": "dias_aio_ate_inicio_obra_calc",
+    "faixa_repasse": "faixa_repasse_calc",
+    "prazo_pub_licitacao": "prazo_pub_licitacao_calc",
+    "prazo_homolog_licitacao": "prazo_homolog_licitacao_calc",
+    "prazo_inicio_obra": "prazo_inicio_obra_calc",
+    "data_limite_licitacao_casa_civil": "data_limite_licitacao_casa_civil_const",
+    "status_regra_casa_civil": "status_regra_casa_civil_calc",
+    "status_pub_licitacao": "status_pub_licitacao_calc",
+    "status_homolog_licitacao": "status_homolog_licitacao_calc",
+    "status_inicio_obra": "status_inicio_obra_calc",
+    "urgencia_suspensiva": "urgencia_suspensiva_calc",
+}
+
 SOURCE_FIELDS = {
     "cod_tci_tci",
     "num_convenio_tci",
@@ -47,6 +92,17 @@ STATUS_FIELDS = {
     "status_regra_casa_civil_calc",
     "urgencia_suspensiva_calc",
     "fase_atual_calc",
+}
+
+TIME_DRIVEN_FIELDS = {
+    "prazo_pub_licitacao_calc",
+    "prazo_homolog_licitacao_120d",
+    "prazo_homolog_licitacao_calc",
+    "prazo_inicio_obra_calc",
+    "status_pub_licitacao_calc",
+    "status_homolog_licitacao_calc",
+    "status_inicio_obra_calc",
+    "urgencia_suspensiva_calc",
 }
 
 SUMMARY_STATUS_FIELDS = [
@@ -119,6 +175,63 @@ def _normalize(value: str | None) -> str:
     return (value or "").strip()
 
 
+def _canonical_field_name(field: str) -> str:
+    return FIELD_ALIASES.get(field, field)
+
+
+def _canonicalize_header(header: list[str]) -> list[str]:
+    canonical: list[str] = []
+    seen: set[str] = set()
+    for field in header:
+        normalized = _canonical_field_name(field)
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        canonical.append(normalized)
+    return canonical
+
+
+def _canonicalize_row(row: dict[str, str]) -> dict[str, str]:
+    canonical: dict[str, str] = {}
+    for field, value in row.items():
+        canonical[_canonical_field_name(field)] = value
+    return canonical
+
+
+def _canonicalize_indexed_rows(indexed_rows: dict[str, dict[str, str]]) -> dict[str, dict[str, str]]:
+    return {key: _canonicalize_row(row) for key, row in indexed_rows.items()}
+
+
+def _comparable_fields(current_header: list[str], previous_header: list[str]) -> list[str]:
+    previous_fields = set(previous_header)
+    return [
+        field
+        for field in current_header
+        if field in previous_fields and field not in (KEY_FIELD, FALLBACK_KEY_FIELD)
+    ]
+
+
+def _field_nature(field: str, change_type: str) -> str:
+    if change_type == "entrou":
+        return "novo_registro"
+    if change_type == "saiu":
+        return "registro_removido"
+    if field in SOURCE_FIELDS:
+        return "dados_origem"
+    if field in TIME_DRIVEN_FIELDS:
+        return "derivado_tempo"
+    return "derivado_regra"
+
+
+def _row_metadata(row: dict[str, str], key: str) -> dict[str, str]:
+    return {
+        "num_convenio": _normalize(row.get(KEY_FIELD)) or key,
+        "cod_tci": _normalize(row.get(FALLBACK_KEY_FIELD)),
+        "uf": _normalize(row.get("txt_uf_tci")),
+        "secretaria": _normalize(row.get("txt_sigla_secretaria_tci")),
+    }
+
+
 def _copy_snapshot(current_csv: Path, history_dir: Path, snapshot_date: date) -> Path:
     history_dir.mkdir(parents=True, exist_ok=True)
     snapshot_path = history_dir / f"base_pc_32_{snapshot_date.isoformat()}.csv"
@@ -167,7 +280,8 @@ def _classify_record_change(changed_fields: list[str]) -> str:
 def _build_detail_rows(
     previous_rows: dict[str, dict[str, str]],
     current_rows: dict[str, dict[str, str]],
-    header: list[str],
+    current_header: list[str],
+    previous_header: list[str],
 ) -> tuple[list[dict[str, str]], dict[str, int]]:
     detail_rows: list[dict[str, str]] = []
     stats = {
@@ -183,35 +297,39 @@ def _build_detail_rows(
 
     for key in sorted(current_keys - previous_keys):
         row = current_rows[key]
+        metadata = _row_metadata(row, key)
         stats["entered"] += 1
         detail_rows.append(
             {
                 "tipo_alteracao": "entrou",
                 "categoria_alteracao": "novo_registro",
-                "num_convenio": key,
-                "cod_tci": _normalize(row.get("cod_tci_tci") or row.get("cod_tci")),
-                "campo": "vlr_repasse",
+                "natureza_campo": "novo_registro",
+                "num_convenio": metadata["num_convenio"],
+                "cod_tci": metadata["cod_tci"],
+                "campo": "vlr_repasse_tci",
                 "valor_anterior": "",
-                "valor_atual": _normalize(row.get("vlr_repasse_tci") or row.get("vlr_repasse")),
+                "valor_atual": _normalize(row.get("vlr_repasse_tci")),
             }
         )
 
     for key in sorted(previous_keys - current_keys):
         row = previous_rows[key]
+        metadata = _row_metadata(row, key)
         stats["exited"] += 1
         detail_rows.append(
             {
                 "tipo_alteracao": "saiu",
                 "categoria_alteracao": "registro_removido",
-                "num_convenio": key,
-                "cod_tci": _normalize(row.get("cod_tci_tci") or row.get("cod_tci")),
-                "campo": "vlr_repasse",
-                "valor_anterior": _normalize(row.get("vlr_repasse_tci") or row.get("vlr_repasse")),
+                "natureza_campo": "registro_removido",
+                "num_convenio": metadata["num_convenio"],
+                "cod_tci": metadata["cod_tci"],
+                "campo": "vlr_repasse_tci",
+                "valor_anterior": _normalize(row.get("vlr_repasse_tci")),
                 "valor_atual": "",
             }
         )
 
-    comparable_fields = [field for field in header if field not in (KEY_FIELD, FALLBACK_KEY_FIELD)]
+    comparable_fields = _comparable_fields(current_header, previous_header)
 
     for key in sorted(previous_keys & current_keys):
         previous = previous_rows[key]
@@ -232,14 +350,17 @@ def _build_detail_rows(
         else:
             stats["changed_data_records"] += 1
 
-        cod_tci = _normalize(current.get("cod_tci_tci") or current.get("cod_tci")) or _normalize(previous.get("cod_tci_tci") or previous.get("cod_tci"))
+        metadata = _row_metadata(current, key)
+        if not metadata["cod_tci"]:
+            metadata["cod_tci"] = _row_metadata(previous, key)["cod_tci"]
         for field in changed_fields:
             detail_rows.append(
                 {
                     "tipo_alteracao": "alterado",
                     "categoria_alteracao": category,
-                    "num_convenio": key,
-                    "cod_tci": cod_tci,
+                    "natureza_campo": _field_nature(field, "alterado"),
+                    "num_convenio": metadata["num_convenio"],
+                    "cod_tci": metadata["cod_tci"],
                     "campo": field,
                     "valor_anterior": _normalize(previous.get(field)),
                     "valor_atual": _normalize(current.get(field)),
@@ -262,58 +383,72 @@ def _build_cumulative_diff(history_dir: Path) -> list[dict[str, str]]:
         curr_path = snapshots[i]
         snapshot_date = curr_path.stem.replace("base_pc_32_", "")
 
-        header, curr_raw = _read_csv(curr_path)
-        _, prev_raw = _read_csv(prev_path)
+        curr_header_raw, curr_raw = _read_csv(curr_path)
+        prev_header_raw, prev_raw = _read_csv(prev_path)
 
-        curr_indexed = _index_rows(curr_raw, f"Cumul. atual ({curr_path.name})")
-        prev_indexed = _index_rows(prev_raw, f"Cumul. anterior ({prev_path.name})")
+        curr_header = _canonicalize_header(curr_header_raw)
+        prev_header = _canonicalize_header(prev_header_raw)
+        curr_indexed = _canonicalize_indexed_rows(_index_rows(curr_raw, f"Cumul. atual ({curr_path.name})"))
+        prev_indexed = _canonicalize_indexed_rows(_index_rows(prev_raw, f"Cumul. anterior ({prev_path.name})"))
 
         prev_keys = set(prev_indexed)
         curr_keys = set(curr_indexed)
 
         for key in sorted(curr_keys - prev_keys):
             row = curr_indexed[key]
+            metadata = _row_metadata(row, key)
             all_rows.append({
                 "data": snapshot_date,
                 "tipo": "Novo",
-                "num_convenio": _normalize(row.get("num_convenio")),
-                "cod_tci": _normalize(row.get("cod_tci")),
-                "uf": _normalize(row.get("txt_uf")),
-                "secretaria": _normalize(row.get("txt_sigla_secretaria")),
-                "campo": "vlr_repasse",
+                "categoria": "novo_registro",
+                "natureza": "novo_registro",
+                "num_convenio": metadata["num_convenio"],
+                "cod_tci": metadata["cod_tci"],
+                "uf": metadata["uf"],
+                "secretaria": metadata["secretaria"],
+                "campo": "vlr_repasse_tci",
                 "valor_anterior": "",
-                "valor_atual": _normalize(row.get("vlr_repasse")),
+                "valor_atual": _normalize(row.get("vlr_repasse_tci")),
             })
 
         for key in sorted(prev_keys - curr_keys):
             row = prev_indexed[key]
+            metadata = _row_metadata(row, key)
             all_rows.append({
                 "data": snapshot_date,
                 "tipo": "Removido",
-                "num_convenio": _normalize(row.get("num_convenio")),
-                "cod_tci": _normalize(row.get("cod_tci")),
-                "uf": _normalize(row.get("txt_uf")),
-                "secretaria": _normalize(row.get("txt_sigla_secretaria")),
-                "campo": "vlr_repasse",
-                "valor_anterior": _normalize(row.get("vlr_repasse")),
+                "categoria": "registro_removido",
+                "natureza": "registro_removido",
+                "num_convenio": metadata["num_convenio"],
+                "cod_tci": metadata["cod_tci"],
+                "uf": metadata["uf"],
+                "secretaria": metadata["secretaria"],
+                "campo": "vlr_repasse_tci",
+                "valor_anterior": _normalize(row.get("vlr_repasse_tci")),
                 "valor_atual": "",
             })
 
-        comparable = [f for f in header if f not in (KEY_FIELD, FALLBACK_KEY_FIELD)]
+        comparable = _comparable_fields(curr_header, prev_header)
         for key in sorted(prev_keys & curr_keys):
             prev = prev_indexed[key]
             curr = curr_indexed[key]
             changed = [f for f in comparable if _normalize(prev.get(f)) != _normalize(curr.get(f))]
             if not changed:
                 continue
+            category = _classify_record_change(changed)
+            metadata = _row_metadata(curr, key)
+            if not metadata["cod_tci"]:
+                metadata["cod_tci"] = _row_metadata(prev, key)["cod_tci"]
             for field in changed:
                 all_rows.append({
                     "data": snapshot_date,
                     "tipo": "Alterado",
-                    "num_convenio": _normalize(curr.get("num_convenio")) or key,
-                    "cod_tci": _normalize(curr.get("cod_tci")) or _normalize(prev.get("cod_tci")),
-                    "uf": _normalize(curr.get("txt_uf")),
-                    "secretaria": _normalize(curr.get("txt_sigla_secretaria")),
+                    "categoria": category,
+                    "natureza": _field_nature(field, "alterado"),
+                    "num_convenio": metadata["num_convenio"],
+                    "cod_tci": metadata["cod_tci"],
+                    "uf": metadata["uf"],
+                    "secretaria": metadata["secretaria"],
                     "campo": field,
                     "valor_anterior": _normalize(prev.get(field)),
                     "valor_atual": _normalize(curr.get(field)),
@@ -324,7 +459,7 @@ def _build_cumulative_diff(history_dir: Path) -> list[dict[str, str]]:
 
 def _write_cumulative_csv(path: Path, rows: list[dict[str, str]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    fieldnames = ["data", "tipo", "num_convenio", "cod_tci", "uf", "secretaria", "campo", "valor_anterior", "valor_atual"]
+    fieldnames = ["data", "tipo", "categoria", "natureza", "num_convenio", "cod_tci", "uf", "secretaria", "campo", "valor_anterior", "valor_atual"]
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames, delimiter=";", quoting=csv.QUOTE_ALL)
         writer.writeheader()
@@ -336,6 +471,7 @@ def _write_detail_csv(path: Path, rows: list[dict[str, str]]) -> None:
     fieldnames = [
         "tipo_alteracao",
         "categoria_alteracao",
+        "natureza_campo",
         "num_convenio",
         "cod_tci",
         "campo",
@@ -485,13 +621,15 @@ def generate_daily_snapshot_diff(
             cumulative_csv_path=cumulative_csv,
         )
 
-    header, current_rows_raw = _read_csv(snapshot_path)
-    _, previous_rows_raw = _read_csv(previous_snapshot)
+    current_header_raw, current_rows_raw = _read_csv(snapshot_path)
+    previous_header_raw, previous_rows_raw = _read_csv(previous_snapshot)
 
-    current_rows = _index_rows(current_rows_raw, f"Snapshot atual ({snapshot_path.name})")
-    previous_rows = _index_rows(previous_rows_raw, f"Snapshot anterior ({previous_snapshot.name})")
+    current_header = _canonicalize_header(current_header_raw)
+    previous_header = _canonicalize_header(previous_header_raw)
+    current_rows = _canonicalize_indexed_rows(_index_rows(current_rows_raw, f"Snapshot atual ({snapshot_path.name})"))
+    previous_rows = _canonicalize_indexed_rows(_index_rows(previous_rows_raw, f"Snapshot anterior ({previous_snapshot.name})"))
 
-    detail_rows, stats = _build_detail_rows(previous_rows, current_rows, header)
+    detail_rows, stats = _build_detail_rows(previous_rows, current_rows, current_header, previous_header)
     status_changes = _summarize_status_changes(detail_rows)
 
     detail_csv_path = diff_dir / f"detalhe_{snapshot_date.isoformat()}.csv"

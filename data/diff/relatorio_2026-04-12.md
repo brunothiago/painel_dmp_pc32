@@ -15,13 +15,13 @@
 
 ## Mudanças por status
 
-- `status_suspensiva`: **0**
-- `status_pub_licitacao`: **2**
-- `status_homolog_licitacao`: **1**
-- `status_inicio_obra`: **0**
-- `status_regra_casa_civil`: **0**
-- `urgencia_suspensiva`: **0**
-- `fase_atual`: **0**
+- `status_suspensiva_calc`: **0**
+- `status_pub_licitacao_calc`: **2**
+- `status_homolog_licitacao_calc`: **1**
+- `status_inicio_obra_calc`: **0**
+- `status_regra_casa_civil_calc`: **0**
+- `urgencia_suspensiva_calc`: **0**
+- `fase_atual_calc`: **0**
 
 ## Leitura recomendada
 
