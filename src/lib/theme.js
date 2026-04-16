@@ -95,18 +95,158 @@ export const INICIO_OBRA_CORES = {
   "Prazo vencido": "#1e3a5f",
 };
 
+const GEO_NEUTRAL_COLOR = "#94a3b8";
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function normalizeHex(hex) {
+  const value = String(hex).trim().replace(/^#/, "");
+  if (value.length === 3) return value.split("").map((char) => char + char).join("");
+  return value;
+}
+
+function hexToRgb(hex) {
+  const value = normalizeHex(hex);
+  const int = Number.parseInt(value, 16);
+  return {
+    r: (int >> 16) & 255,
+    g: (int >> 8) & 255,
+    b: int & 255,
+  };
+}
+
+function rgbToHex({r, g, b}) {
+  return `#${[r, g, b]
+    .map((channel) => clamp(Math.round(channel), 0, 255).toString(16).padStart(2, "0"))
+    .join("")}`;
+}
+
+function rgbToHsl({r, g, b}) {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const lightness = (max + min) / 2;
+  const delta = max - min;
+
+  if (delta === 0) return {h: 0, s: 0, l: lightness};
+
+  const saturation =
+    lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+
+  let hue;
+  switch (max) {
+    case rn:
+      hue = (gn - bn) / delta + (gn < bn ? 6 : 0);
+      break;
+    case gn:
+      hue = (bn - rn) / delta + 2;
+      break;
+    default:
+      hue = (rn - gn) / delta + 4;
+      break;
+  }
+
+  return {h: hue * 60, s: saturation, l: lightness};
+}
+
+function hslToRgb({h, s, l}) {
+  const hue = ((h % 360) + 360) % 360;
+  if (s === 0) {
+    const gray = l * 255;
+    return {r: gray, g: gray, b: gray};
+  }
+
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+  const m = l - c / 2;
+  let rgbPrime;
+
+  if (hue < 60) rgbPrime = {r: c, g: x, b: 0};
+  else if (hue < 120) rgbPrime = {r: x, g: c, b: 0};
+  else if (hue < 180) rgbPrime = {r: 0, g: c, b: x};
+  else if (hue < 240) rgbPrime = {r: 0, g: x, b: c};
+  else if (hue < 300) rgbPrime = {r: x, g: 0, b: c};
+  else rgbPrime = {r: c, g: 0, b: x};
+
+  return {
+    r: (rgbPrime.r + m) * 255,
+    g: (rgbPrime.g + m) * 255,
+    b: (rgbPrime.b + m) * 255,
+  };
+}
+
+function adjustColor(baseHex, {hue = 0, saturation = 0, lightness = 0} = {}) {
+  const hsl = rgbToHsl(hexToRgb(baseHex));
+  return rgbToHex(
+    hslToRgb({
+      h: hsl.h + hue,
+      s: clamp(hsl.s + saturation, 0, 1),
+      l: clamp(hsl.l + lightness, 0, 1),
+    })
+  );
+}
+
+function hashLabel(label) {
+  return [...String(label)].reduce((acc, char) => acc + char.charCodeAt(0), 0);
+}
+
+const GEO_STATE_VARIANTS = [
+  {hue: 0, saturation: 0, lightness: 0},
+  {hue: 4, saturation: 0.03, lightness: 0.08},
+  {hue: -5, saturation: -0.02, lightness: -0.08},
+  {hue: 8, saturation: 0.02, lightness: 0.14},
+  {hue: -9, saturation: -0.03, lightness: -0.12},
+  {hue: 12, saturation: 0.04, lightness: 0.04},
+  {hue: -12, saturation: -0.01, lightness: 0.18},
+  {hue: 16, saturation: 0.03, lightness: -0.04},
+];
+
+const GEO_MUNICIPIO_VARIANTS = [
+  {hue: 0, saturation: 0, lightness: 0},
+  {hue: 2, saturation: 0.02, lightness: 0.1},
+  {hue: -2, saturation: -0.01, lightness: -0.08},
+  {hue: 4, saturation: 0.02, lightness: 0.16},
+  {hue: -4, saturation: -0.02, lightness: -0.14},
+  {hue: 6, saturation: 0.03, lightness: 0.06},
+  {hue: -6, saturation: -0.02, lightness: 0.2},
+  {hue: 8, saturation: 0.02, lightness: -0.04},
+  {hue: -8, saturation: -0.03, lightness: 0.12},
+  {hue: 10, saturation: 0.03, lightness: -0.1},
+];
+
 // Cores por região geográfica
 export const REGIAO_CORES = {
-  "Norte": "#7c3aed",
-  "Nordeste": "#c2410c",
-  "Sudeste": "#0f766e",
-  "Sul": "#2563eb",
-  "Centro-Oeste": "#b45309",
-  "Não informado": "#64748b",
+  "Norte": "#2f7d4a",
+  "Nordeste": "#B8325E",
+  "Centro-Oeste": "#6b8e23",
+  "Sudeste": "#1f6c8b",
+  "Sul": "#6e4cc9",
+  "Não informado": GEO_NEUTRAL_COLOR,
 };
 
 // Ordem convencional das regiões brasileiras
 export const REGIAO_ORDER = ["Norte", "Nordeste", "Sudeste", "Sul", "Centro-Oeste", "Não informado"];
 
-// Cores fallback para UFs (quando não há cor de região)
-export const GEO_FALLBACK_COLORS = ["#0f766e", "#2563eb", "#7c3aed", "#c2410c", "#b45309", "#be123c", "#0369a1", "#4d7c0f"];
+export function getRegiaoColor(regiao) {
+  return REGIAO_CORES[regiao] ?? GEO_NEUTRAL_COLOR;
+}
+
+export function getUfColor(uf, regiao) {
+  const base = getRegiaoColor(regiao);
+  if (!uf || uf === "Não informado") return adjustColor(base, {saturation: -0.12, lightness: 0.18});
+  const variant = GEO_STATE_VARIANTS[hashLabel(`${regiao}-${uf}`) % GEO_STATE_VARIANTS.length];
+  return adjustColor(base, variant);
+}
+
+export function getMunicipioColor(municipio, uf, regiao) {
+  if (!municipio || municipio === "Não informado") return GEO_NEUTRAL_COLOR;
+  const stateBase = getUfColor(uf, regiao);
+  const variant = GEO_MUNICIPIO_VARIANTS[hashLabel(`${regiao}-${uf}-${municipio}`) % GEO_MUNICIPIO_VARIANTS.length];
+  return adjustColor(stateBase, variant);
+}
+
+export const GEO_FALLBACK_COLORS = Object.values(REGIAO_CORES);

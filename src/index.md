@@ -11,7 +11,7 @@ import {renderBaseDataTable} from "./components/base-data-table.js";
 import {metricGrid} from "./components/cards.js";
 import {cascadeChart, matchesCascadeSelection} from "./components/cascade-chart.js";
 import {parseDate, formatNumber, formatCurrencyCompact, formatPercent, formatDate} from "./lib/formatters.js";
-import {PALETTE, SITUACAO_CORES, SUSPENSIVA_CORES, SITUACAO_ORDER, SUSPENSIVA_ORDER, LICITACAO_CORES, INICIO_OBRA_CORES, REGIAO_CORES, REGIAO_ORDER, GEO_FALLBACK_COLORS} from "./lib/theme.js";
+import {PALETTE, SITUACAO_CORES, SUSPENSIVA_CORES, SITUACAO_ORDER, SUSPENSIVA_ORDER, LICITACAO_CORES, INICIO_OBRA_CORES, REGIAO_ORDER, getRegiaoColor, getUfColor, getMunicipioColor} from "./lib/theme.js";
 import {hexToRgba} from "./lib/dom-helpers.js";
 
 const rawText = await FileAttachment("data/base_pc_32.csv").text();
@@ -1020,18 +1020,33 @@ function normalizeGeoLabel(value) {
   return normalized || GEO_EMPTY_LABEL;
 }
 
-function colorForGeoLabel(label, index) {
-  return REGIAO_CORES[label] ?? GEO_FALLBACK_COLORS[index % GEO_FALLBACK_COLORS.length];
+function resolveGeoColor(field, label, sampleRow) {
+  if (field === "regiao") return getRegiaoColor(label);
+  if (field === "uf") return getUfColor(label, normalizeGeoLabel(sampleRow?.regiao));
+  if (field === "municipio") {
+    return getMunicipioColor(
+      label,
+      normalizeGeoLabel(sampleRow?.uf),
+      normalizeGeoLabel(sampleRow?.regiao)
+    );
+  }
+  return PALETTE.blue;
 }
 
 function buildGeoBreakdown(rows, field, order) {
   const counts = new Map();
+  const samples = new Map();
   for (const row of rows) {
     const label = normalizeGeoLabel(row[field]);
     counts.set(label, (counts.get(label) ?? 0) + 1);
+    if (!samples.has(label)) samples.set(label, row);
   }
   const items = [...counts.entries()]
-    .map(([label, qtd], index) => ({label, qtd, color: colorForGeoLabel(label, index)}));
+    .map(([label, qtd]) => ({
+      label,
+      qtd,
+      color: resolveGeoColor(field, label, samples.get(label)),
+    }));
   if (order) {
     const idx = new Map(order.map((v, i) => [v, i]));
     return items.sort((a, b) => (idx.get(a.label) ?? 999) - (idx.get(b.label) ?? 999));
@@ -1042,13 +1057,17 @@ function buildGeoBreakdown(rows, field, order) {
 function matchesGeoSelection(d, selection = {}) {
   return (
     (selection?.regiao == null || normalizeGeoLabel(d.regiao) === selection.regiao) &&
-    (selection?.uf == null || normalizeGeoLabel(d.uf) === selection.uf)
+    (selection?.uf == null || normalizeGeoLabel(d.uf) === selection.uf) &&
+    (selection?.municipio == null || normalizeGeoLabel(d.municipio) === selection.municipio)
   );
 }
 
+const GEO_MUNICIPIO_LIMIT = 15;
+const GEO_OUTROS_MUNICIPIOS_LABEL = "Outros municípios";
+
 function makeGeoCascade(rows) {
   const wrap = Object.assign(document.createElement("div"), {
-    value: {regiao: null, uf: null}
+    value: {regiao: null, uf: null, municipio: null}
   });
   wrap.className = "casc-chart";
 
@@ -1057,20 +1076,22 @@ function makeGeoCascade(rows) {
     const clear = makeFlowElement("button", "casc-clear", "Limpar seleção");
     clear.hidden = !Object.values(wrap.value).some(Boolean);
     clear.addEventListener("click", () => {
-      wrap.value = {regiao: null, uf: null};
+      wrap.value = {regiao: null, uf: null, municipio: null};
       render();
       wrap.dispatchEvent(new Event("input", {bubbles: true}));
     });
     wrap.append(clear);
     const active = makeCascadeActiveChips(
       wrap.value,
-      {regiao: "Região", uf: "UF"},
+      {regiao: "Região", uf: "UF", municipio: "Município"},
       {
-        regiao: colorForGeoChip,
-        uf: colorForGeoChip,
+        regiao: (label) => getRegiaoColor(label),
+        uf: (label) => getUfColor(label, wrap.value.regiao),
+        municipio: (label) => getMunicipioColor(label, wrap.value.uf, wrap.value.regiao),
       },
       (key) => {
-        if (key === "regiao") wrap.value = {regiao: null, uf: null};
+        if (key === "regiao") wrap.value = {regiao: null, uf: null, municipio: null};
+        else if (key === "uf") wrap.value = {...wrap.value, uf: null, municipio: null};
         else wrap.value = {...wrap.value, [key]: null};
         render();
         wrap.dispatchEvent(new Event("input", {bubbles: true}));
@@ -1092,7 +1113,7 @@ function makeGeoCascade(rows) {
           selectedValue: wrap.value.regiao,
           onSelect: (_key, label) => {
             const nextRegiao = wrap.value.regiao === label ? null : label;
-            wrap.value = {regiao: nextRegiao, uf: null};
+            wrap.value = {regiao: nextRegiao, uf: null, municipio: null};
             render();
             wrap.dispatchEvent(new Event("input", {bubbles: true}));
           }
@@ -1105,7 +1126,7 @@ function makeGeoCascade(rows) {
       const ufData = buildGeoBreakdown(ufBase, "uf");
 
       if (ufData.length > 0) {
-        if (!ufData.some(d => d.label === wrap.value.uf)) wrap.value = {...wrap.value, uf: null};
+        if (!ufData.some(d => d.label === wrap.value.uf)) wrap.value = {...wrap.value, uf: null, municipio: null};
         wrap.append(makeFlowConnector(`estados da região ${wrap.value.regiao}`));
         wrap.append(
           makeFlowLevel(
@@ -1117,7 +1138,65 @@ function makeGeoCascade(rows) {
               filterKey: "uf",
               selectedValue: wrap.value.uf,
               onSelect: (_key, label) => {
-                wrap.value = {...wrap.value, uf: wrap.value.uf === label ? null : label};
+                wrap.value = {
+                  ...wrap.value,
+                  uf: wrap.value.uf === label ? null : label,
+                  municipio: null
+                };
+                render();
+                wrap.dispatchEvent(new Event("input", {bubbles: true}));
+              }
+            }
+          )
+        );
+      }
+    }
+
+    if (wrap.value.regiao != null && wrap.value.uf != null) {
+      const municipioBase = rows.filter(d =>
+        normalizeGeoLabel(d.regiao) === wrap.value.regiao &&
+        normalizeGeoLabel(d.uf) === wrap.value.uf
+      );
+      const municipioFullData = buildGeoBreakdown(municipioBase, "municipio");
+      const municipioTopData = municipioFullData.slice(0, GEO_MUNICIPIO_LIMIT);
+      const municipioRestante = municipioFullData
+        .slice(GEO_MUNICIPIO_LIMIT)
+        .reduce((sum, item) => sum + item.qtd, 0);
+      const municipioData = municipioRestante > 0
+        ? [
+            ...municipioTopData,
+            {
+              label: GEO_OUTROS_MUNICIPIOS_LABEL,
+              qtd: municipioRestante,
+              color: "#94a3b8"
+            }
+          ]
+        : municipioTopData;
+
+      if (municipioData.length > 0) {
+        if (
+          wrap.value.municipio === GEO_OUTROS_MUNICIPIOS_LABEL ||
+          !municipioData.some(d => d.label === wrap.value.municipio)
+        ) {
+          wrap.value = {...wrap.value, municipio: null};
+        }
+        wrap.append(makeFlowConnector(`municípios da UF ${wrap.value.uf}`));
+        wrap.append(
+          makeFlowLevel(
+            `${formatNumber(municipioBase.length)} contratos na UF ${wrap.value.uf}`,
+            municipioBase.length > GEO_MUNICIPIO_LIMIT
+              ? `top ${GEO_MUNICIPIO_LIMIT} municípios por quantidade de contratos`
+              : "por município",
+            municipioData,
+            municipioBase.length,
+            {
+              filterKey: "municipio",
+              selectedValue: wrap.value.municipio,
+              onSelect: (_key, label) => {
+                wrap.value = {
+                  ...wrap.value,
+                  municipio: wrap.value.municipio === label ? null : label
+                };
                 render();
                 wrap.dispatchEvent(new Event("input", {bubbles: true}));
               }
@@ -1146,13 +1225,6 @@ function applyActiveChipColor(chip, color) {
   chip.style.setProperty("--chip-bg", hexToRgba(color, 0.12));
   chip.style.setProperty("--chip-bg-hover", hexToRgba(color, 0.18));
   chip.style.setProperty("--chip-fg", color);
-}
-
-function colorForGeoChip(label) {
-  const direct = REGIAO_CORES[label];
-  if (direct) return direct;
-  const hash = [...String(label)].reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return GEO_FALLBACK_COLORS[hash % GEO_FALLBACK_COLORS.length];
 }
 
 function makeCascadeActiveChips(values, labels, colorByKey, onClear) {
