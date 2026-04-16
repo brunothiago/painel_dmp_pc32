@@ -358,6 +358,7 @@ const fConvenioInput = Inputs.search(rawData, {
 
 function localizeSearchResults(input) {
   const output = input.querySelector("output");
+  const searchField = input.querySelector("input[type='search']");
   const countFormatter = new Intl.NumberFormat("pt-BR");
   const sync = () => {
     if (output) {
@@ -380,6 +381,16 @@ function localizeSearchResults(input) {
   sync();
   input.addEventListener("input", sync);
   new MutationObserver(sync).observe(input, {childList: true, characterData: true, subtree: true});
+
+  // Observable Inputs.search updates its internal result list while typing,
+  // but it does not emit an input event on the form wrapper by default.
+  // Forward the field events so downstream reactive cells see the filtered rows.
+  if (searchField) {
+    const notify = () => input.dispatchEvent(new Event("input", {bubbles: true}));
+    searchField.addEventListener("input", notify);
+    searchField.addEventListener("change", notify);
+    searchField.addEventListener("search", notify);
+  }
 }
 
 localizeSearchResults(fConvenioInput);
