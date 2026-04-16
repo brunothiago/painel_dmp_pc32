@@ -17,6 +17,7 @@ import {hexToRgba} from "./lib/dom-helpers.js";
 const rawText = await FileAttachment("data/base_pc_32.csv").text();
 const previousRawText = await FileAttachment("data/base_pc_32_previous.csv").text();
 const baseDiffLatest = await FileAttachment("data/base_diff_latest.json").json();
+const fluxoPc72ImageUrl = await FileAttachment("assets/fluxo-pc72.jpeg").url();
 const dsv = dsvFormat(";");
 
 function pickField(row, ...names) {
@@ -206,6 +207,67 @@ function buildMetricDelta(currentValue, previousValue, formatter = formatMetricD
     ...formatter(currentValue - previousValue),
     title: `Variação em relação a ${formatDate(baseDiffLatest.snapshot_anterior)}`,
   };
+}
+
+function createReferenceImageButton({label, title, imageUrl, caption, linkLabel = "Abrir imagem em nova aba"}) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "context-link-btn";
+  button.innerHTML = `<span class="context-link-btn__label">${label}</span>`;
+
+  button.addEventListener("click", () => {
+    window.__pc32RuleTooltipInit?.closeAllRuleTooltips?.();
+
+    const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const titleId = `pc32-reference-modal-title-${Math.random().toString(36).slice(2, 9)}`;
+    const captionId = `pc32-reference-modal-caption-${Math.random().toString(36).slice(2, 9)}`;
+
+    const overlay = document.createElement("div");
+    overlay.className = "reference-modal";
+    overlay.innerHTML = `
+      <div class="reference-modal__backdrop"></div>
+      <div class="reference-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="${titleId}" aria-describedby="${captionId}">
+        <div class="reference-modal__header">
+          <div class="reference-modal__titles">
+            <h3 id="${titleId}">${title}</h3>
+            <p id="${captionId}">${caption}</p>
+          </div>
+          <button type="button" class="reference-modal__close" aria-label="Fechar fluxo">Fechar</button>
+        </div>
+        <div class="reference-modal__body">
+          <img src="${imageUrl}" alt="${title}" class="reference-modal__image">
+        </div>
+        <div class="reference-modal__footer">
+          <a class="reference-modal__link" href="${imageUrl}" target="_blank" rel="noreferrer">${linkLabel}</a>
+        </div>
+      </div>
+    `;
+
+    const closeButton = overlay.querySelector(".reference-modal__close");
+    const close = () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeydown);
+      overlay.remove();
+      previousFocus?.focus?.();
+    };
+    const onKeydown = (event) => {
+      if (event.key === "Escape") close();
+    };
+
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay || event.target.closest(".reference-modal__backdrop")) {
+        close();
+      }
+    });
+    closeButton?.addEventListener("click", close);
+    document.addEventListener("keydown", onKeydown);
+    document.body.append(overlay);
+    document.body.style.overflow = "hidden";
+    closeButton?.focus();
+  });
+
+  return button;
 }
 ```
 
@@ -1576,6 +1638,19 @@ const selectedCascade = view(cascadeChart(geoScopedData));
 <h2>Análise de Licitação — Prazos de publicação e homologação <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Monitoramento dos prazos de licitação para contratos com situação de contrato DMP igual a <strong>Contratado - Normal</strong>.<ul><li><strong>Base do bloco</strong> — considera apenas contratos em <strong>Contratado - Normal (DMP)</strong></li><li><strong>Exceção PC 72</strong> — contratos assinados antes de <strong>21/10/2025</strong> aparecem como <strong>Sem prazo (PC 72)</strong> na publicação</li><li><strong>Sem prazo calculado</strong> — contratos sem publicação e sem classificação de prazo calculada na base</li><li><strong>Prazo de publicação</strong> — até 120 dias corridos conforme a regra calculada da base, exceto os casos da PC 72</li><li><strong>Prazo de homologação</strong> — até 120 dias corridos após a publicação da licitação</li><li><strong>Regra Casa Civil</strong> — publicação, homologação e ordem de serviço devem ocorrer até 01/06/2026</li></ul>Classificação de prazo:<ul><li><strong>Vencida</strong> — prazo já expirou</li><li><strong>Próximos 30 dias</strong> — vence em até 30 dias</li><li><strong>No prazo</strong> — mais de 30 dias restantes</li><li><strong>Sem prazo (PC 72)</strong> — assinatura anterior a 21/10/2025</li><li><strong>Sem prazo calculado</strong> — sem status calculado na base</li></ul></span></span></h2>
 
 <p>O bloco considera contratos em <strong>Contratado - Normal (DMP)</strong>; na publicação, contratos assinados antes de <strong>21/10/2025</strong> aparecem como <strong>Sem prazo (PC 72)</strong>.</p>
+
+<div class="context-action-row">
+
+```js
+display(createReferenceImageButton({
+  label: "Ver fluxo PC 72",
+  title: "Fluxo de prazos — Portaria Conjunta 72/2025",
+  imageUrl: fluxoPc72ImageUrl,
+  caption: "Referência visual do fluxo de prazos do termo de compromisso do Novo PAC, da condição suspensiva até a prestação de contas.",
+}));
+```
+
+</div>
 
 ```js
 const selectedLicitacaoState = view(renderLicitacaoExplorer(geoScopedData, geoScopedPreviousData));
