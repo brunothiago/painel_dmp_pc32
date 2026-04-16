@@ -38,7 +38,7 @@ function parseBaseRow(d) {
   secretaria: pickField(d, "txt_sigla_secretaria_tci", "txt_sigla_secretaria"),
   fase: pickField(d, "dsc_fase_pac_tci", "dsc_fase_pac"),
   modalidade: pickField(d, "txt_modalidade_tci", "txt_modalidade"),
-  situacao: pickField(d, "dsc_situacao_contrato_mcid_tci", "dsc_situacao_contrato_mcid"),
+  situacao: pickField(d, "situacao_contrato_dmp", "dsc_situacao_contrato_mcid_tci", "dsc_situacao_contrato_mcid"),
   dt_assinatura: parseDate(pickField(d, "dte_assinatura_contrato_tci", "dte_assinatura_contrato")),
   situacao_suspensiva: pickField(d, "situacao_da_analise_suspensiva_cgpac", "situacao_da_analise_suspensiva_pbi", "situacao_da_analise_suspensiva"),
   situacao_suspensiva_pbi: pickField(d, "situacao_da_analise_suspensiva_pbi", "situacao_da_analise_suspensiva"),
@@ -699,7 +699,7 @@ function makeCrossFilteredCharts(data, previousBaseData, drillField, drillLabel,
     const sitCard = document.createElement("div");
     sitCard.className = "card";
     sitCard.innerHTML = `
-      <h2>Situação do Contrato <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Classificação da situação contratual conforme Transferegov.<ul><li><strong>Em Contratação</strong> — instrumento ainda não formalizado</li><li><strong>Contratado - Suspensiva</strong> — contrato assinado com condição suspensiva pendente</li><li><strong>Contratado - Normal</strong> — contrato ativo sem restrições</li><li><strong>Cancelado ou Distratado</strong> — contrato encerrado</li></ul></span></span></h2>
+      <h2>Situação do Contrato DMP <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Classificação da situação contratual consolidada pela DMP.<ul><li><strong>Em Contratação</strong> — instrumento ainda não formalizado</li><li><strong>Contratado - Suspensiva</strong> — contrato assinado com condição suspensiva pendente</li><li><strong>Contratado - Normal</strong> — contrato ativo sem restrições ou normalizado quando a análise suspensiva DMP indicar retirada</li><li><strong>Cancelado ou Distratado</strong> — contrato encerrado</li><li><strong>Contratado - Em Prestação de Contas</strong> — contrato em fase de prestação de contas</li></ul></span></span></h2>
       <p>Clique em uma barra para filtrar</p>
     `;
     const sitChart = makeClickableChart(
@@ -734,7 +734,7 @@ function makeCrossFilteredCharts(data, previousBaseData, drillField, drillLabel,
     const suspCard = document.createElement("div");
     suspCard.className = "card";
     suspCard.innerHTML = `
-      <h2>Situação da Análise Suspensiva CGPAC <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Situação consolidada da condição suspensiva, priorizando a classificação CGPAC e preservando o valor original do PBI quando não há marco suficiente para considerar retirada.<ul><li><strong>Doc. não enviada p/ análise</strong> — documentação ainda não submetida</li><li><strong>Análise não iniciada / iniciada</strong> — etapas de tramitação interna</li><li><strong>Analisada e aceita</strong> — condição aceita, aguardando retirada</li><li><strong>Suspensiva retirada</strong> — condição satisfeita, contrato liberado ou inferida pelos marcos de andamento</li></ul></span></span></h2>
+      <h2>Situação da Análise Suspensiva DMP <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Situação consolidada da condição suspensiva, priorizando a classificação DMP e preservando o valor original do PBI quando não há marco suficiente para considerar retirada.<ul><li><strong>Doc. não enviada p/ análise</strong> — documentação ainda não submetida</li><li><strong>Análise não iniciada / iniciada</strong> — etapas de tramitação interna</li><li><strong>Analisada e aceita</strong> — condição aceita, aguardando retirada</li><li><strong>Suspensiva retirada</strong> — condição satisfeita, contrato liberado ou inferida pelos marcos de andamento</li></ul></span></span></h2>
       <p>Clique em uma barra para filtrar</p>
     `;
     const suspChart = makeClickableChart(
@@ -866,25 +866,43 @@ function makeCrossFilteredCharts(data, previousBaseData, drillField, drillLabel,
       applyFilter(d, "situacao_suspensiva", suspSel) &&
       applyFilter(d, drillField, drillSel)
     );
+    const isComSuspensiva = (d) =>
+      d.situacao === "Contratado - Suspensiva" &&
+      d.situacao_suspensiva !== "Suspensiva retirada";
+
+    const isSemSuspensiva = (d) =>
+      d.situacao === "Contratado - Normal" ||
+      d.situacao_suspensiva === "Suspensiva retirada";
+
+    const isContratoRestante = (d) =>
+      d.situacao === "Em Contratação" ||
+      d.situacao === "Cancelado ou Distratado" ||
+      d.situacao === "Contratado - Em Prestação de Contas";
+
     const _total = fullyFiltered.length;
-    const _comSusp = fullyFiltered.filter(d => d.situacao === "Contratado - Suspensiva").length;
-    const _semSusp = fullyFiltered.filter(d => d.situacao === "Contratado - Normal").length;
-    const _vlrTotal = fullyFiltered.reduce((s, d) => s + d.vlr_repasse, 0);
+    const _vlrTotal = fullyFiltered.reduce((sum, d) => sum + d.vlr_repasse, 0);
+    const _semSusp = fullyFiltered.filter(isSemSuspensiva).length;
+    const _vlrSemSusp = fullyFiltered.filter(isSemSuspensiva).reduce((sum, d) => sum + d.vlr_repasse, 0);
+    const _comSusp = fullyFiltered.filter(isComSuspensiva).length;
+    const _vlrComSusp = fullyFiltered.filter(isComSuspensiva).reduce((sum, d) => sum + d.vlr_repasse, 0);
+    const _restantes = fullyFiltered.filter(isContratoRestante).length;
+    const _vlrRestantes = fullyFiltered.filter(isContratoRestante).reduce((sum, d) => sum + d.vlr_repasse, 0);
     const _pTotal = prevFiltered.length;
-    const _pComSusp = prevFiltered.filter(d => d.situacao === "Contratado - Suspensiva").length;
-    const _pSemSusp = prevFiltered.filter(d => d.situacao === "Contratado - Normal").length;
-    const _pVlrTotal = prevFiltered.reduce((s, d) => s + d.vlr_repasse, 0);
+    const _pSemSusp = prevFiltered.filter(isSemSuspensiva).length;
+    const _pComSusp = prevFiltered.filter(isComSuspensiva).length;
+    const _pRestantes = prevFiltered.filter(isContratoRestante).length;
     const _pctSusp = _total > 0 ? _comSusp / _total : 0;
     const _pctSem = _total > 0 ? _semSusp / _total : 0;
+    const _pctRestantes = _total > 0 ? _restantes / _total : 0;
     const _drillDetail = drillSel == null
       ? "do recorte principal"
       : `do recorte de ${drillLabel.toLowerCase()} ${drillSel}`;
 
     const cardsRow = metricGrid([
-      { label: "Total selecionadas", value: formatNumber(_total), delta: buildMetricDelta(_total, _pTotal), detail: _drillDetail, tone: "default" },
-      { label: "Com suspensiva", value: formatNumber(_comSusp), detail: `${formatPercent(_pctSusp)} ${_drillDetail}`, delta: buildMetricDelta(_comSusp, _pComSusp), tone: "gold" },
-      { label: "Sem suspensiva (Normal)", value: formatNumber(_semSusp), detail: `${formatPercent(_pctSem)} ${_drillDetail}`, delta: buildMetricDelta(_semSusp, _pSemSusp), tone: "green" },
-      { label: "Valor total de repasse", value: formatCurrencyCompact(_vlrTotal), detail: _drillDetail, delta: buildMetricDelta(_vlrTotal, _pVlrTotal, formatCurrencyDelta), tone: "blue" },
+      { label: "Total selecionadas", value: formatNumber(_total), topRight: formatCurrencyCompact(_vlrTotal), delta: buildMetricDelta(_total, _pTotal), detail: _drillDetail, tone: "default" },
+      { label: "Com suspensiva", value: formatNumber(_comSusp), topRight: formatCurrencyCompact(_vlrComSusp), detail: `${formatPercent(_pctSusp)} ${_drillDetail}`, delta: buildMetricDelta(_comSusp, _pComSusp), tone: "gold" },
+      { label: "Sem suspensiva (DMP)", value: formatNumber(_semSusp), topRight: formatCurrencyCompact(_vlrSemSusp), detail: `${formatPercent(_pctSem)} ${_drillDetail}`, delta: buildMetricDelta(_semSusp, _pSemSusp), tone: "green" },
+      { label: "Contratos inativos", value: formatNumber(_restantes), topRight: formatCurrencyCompact(_vlrRestantes), detail: `${formatPercent(_pctRestantes)} ${_drillDetail}`, delta: buildMetricDelta(_restantes, _pRestantes), tone: "blue" },
     ]);
 
     wrap.append(cardsRow, drillRow, sitSuspRow);
@@ -1664,7 +1682,7 @@ const exportHeaders = {
   fase: "Fase",
   modalidade: "Modalidade",
   situacao: "Situação Contrato",
-  situacao_suspensiva: "Situação Suspensiva CGPAC",
+  situacao_suspensiva: "Situação Suspensiva DMP",
   dt_vencimento_suspensiva: "Venc. Suspensiva",
   dt_retirada_suspensiva: "Retirada Suspensiva",
   dt_assinatura: "Assinatura",
@@ -1769,7 +1787,7 @@ const tciLinkCol = d => d
   : "—";
 
 const diffFieldLabels = {
-  situacao: "Situação", situacao_suspensiva: "Sit. Suspensiva CGPAC", status_suspensiva: "Status Suspensiva",
+  situacao: "Situação", situacao_suspensiva: "Sit. Suspensiva DMP", status_suspensiva: "Status Suspensiva",
   fase_atual: "Fase Atual", dt_retirada_suspensiva: "Ret. Suspensiva", dt_lae: "LAE",
   dt_pub_licitacao: "Pub. Licitação", dt_homolog_licitacao: "Homolog.", dt_vrpl: "VRPL",
   dt_aio: "AIO", dt_inicio_obra: "Início Obra", vlr_repasse: "Repasse",
@@ -1792,7 +1810,7 @@ display(renderBaseDataTable({
     _diff_label: "Alteração", num_convenio: "Convênio", cod_tci: "TCI", secretaria: "Secretaria",
     regiao: "Região", uf: "UF", municipio: "Município",
     fase: "Fase", modalidade: "Modalidade", situacao: "Situação Contrato",
-    situacao_suspensiva: "Situação Suspensiva CGPAC",
+    situacao_suspensiva: "Situação Suspensiva DMP",
     dt_vencimento_suspensiva: "Venc. Suspensiva", dt_retirada_suspensiva: "Retirada Suspensiva",
     dt_assinatura: "Assinatura", dt_lae: "LAE", data_limite_licitacao_casa_civil: "Data Limite de Licitação Casa Civil", status_regra_casa_civil: "Cumprimento Regra Casa Civil", prazo_pub_licitacao: "Prazo Publicação",
     status_pub_licitacao: "Status Publicação", dt_pub_licitacao: "Pub. Licitação",

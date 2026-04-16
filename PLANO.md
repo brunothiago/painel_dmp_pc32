@@ -1,4 +1,4 @@
-# Plano Operacional — Painel PC 32 CGPAC
+# Plano Operacional — Painel PC 32 DMP
 
 ## Visão Geral
 

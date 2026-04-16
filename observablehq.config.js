@@ -55,7 +55,7 @@ export default {
       <div class="footer-content">
         <div class="footer-info">
           <p>Acompanhamento dos contratos da <a href="https://www.gov.br/transferegov/pt-br/legislacao/portarias/portaria-conjunta-mgi-mf-cgu-no-32-de-4-de-junho-de-2024" target="_blank" rel="noopener noreferrer">Portaria Conjunta 32</a> — Novo PAC Seleção.</p>
-          <p>Fonte: CGPAC / Ministério das Cidades</p>
+          <p>Fonte: DMP / Ministério das Cidades</p>
         </div>
         <img class="footer-logo" src="./logos/logo_mcid.png" alt="Logo do Ministério das Cidades">
       </div>
