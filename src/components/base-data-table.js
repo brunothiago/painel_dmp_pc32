@@ -135,6 +135,7 @@ export function renderBaseDataTable({
     for (const column of columns) {
       const formatter = formatters[column];
       const value = row[column];
+      processed[`${column}__raw`] = value;
       processed[column] = formatter ? formatter(value, row) : (value ?? "—");
       processed[`${column}__text`] = toPlainText(processed[column]);
     }
@@ -173,8 +174,10 @@ export function renderBaseDataTable({
     title: column.label,
     className: column.className,
     width: column.width,
-    render(data, type) {
+    render(data, type, row) {
       if (type === "display") return data ?? "—";
+      const raw = row[`${column.key}__raw`];
+      if (raw instanceof Date && !isNaN(raw)) return raw.getTime();
       return toPlainText(data);
     },
   }));
@@ -209,9 +212,18 @@ export function renderBaseDataTable({
       columnMeta.forEach((column, index) => {
         const cell = filterRow.cells[index];
         if (column.filter === "select") {
-          const values = [...new Set(processedRows.map((row) => toPlainText(row[column.key])))]
-            .filter(Boolean)
-            .sort((a, b) => String(a).localeCompare(String(b), "pt-BR"));
+          const valueMap = new Map();
+          for (const row of processedRows) {
+            const text = toPlainText(row[column.key]);
+            if (text && !valueMap.has(text)) valueMap.set(text, row[`${column.key}__raw`]);
+          }
+          const values = [...valueMap.entries()]
+            .sort((a, b) => {
+              const rawA = a[1], rawB = b[1];
+              if (rawA instanceof Date && rawB instanceof Date) return rawA - rawB;
+              return String(a[0]).localeCompare(String(b[0]), "pt-BR");
+            })
+            .map(([text]) => text);
           const select = document.createElement("select");
           select.className = `datatable-filter ${column.className}`.trim();
           select.setAttribute("aria-label", `Filtrar coluna ${column.label}`);
