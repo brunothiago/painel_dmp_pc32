@@ -167,13 +167,12 @@ const alteracoesMetricGrid = metricGrid([
   { label: "Mudanças de dado", value: formatNumber(mudancasDeDados), tone: "gold" },
   { label: "Mudanças derivadas", value: formatNumber(mudancasDerivadas), tone: "default" },
   { label: "Mudanças automáticas", value: formatNumber(mudancasAutomaticas), tone: "green" },
-  { label: "Campos alterados", value: formatNumber(totalCamposAlterados), tone: "red" },
 ]);
 alteracoesMetricGrid.classList.add("metrics-grid--alteracoes");
 display(alteracoesMetricGrid);
 ```
 
-<p class="metric-detail">Cada linha da tabela representa um campo alterado entre snapshots consecutivos. Os cards acima separam eventos por empreendimento das mudanças automáticas de prazo/status.</p>
+<p class="metric-detail">A tabela abaixo tem ${formatNumber(totalCamposAlterados)} linhas, cada uma representando um campo alterado entre snapshots consecutivos.</p>
 
 <div class="table-shell">
 
