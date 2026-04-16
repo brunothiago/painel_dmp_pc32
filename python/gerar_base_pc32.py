@@ -334,8 +334,8 @@ UNION ALL
 SELECT 'bdgestores' AS key,
        'BDGestores' AS label,
        'TDB' AS sigla,
-       max(tdb.dte_carga_etl)::date AS updated_at,
-       'max(dte_carga_etl)' AS method
+       max(tdb.dte_posicao)::date AS updated_at,
+       'max(dte_posicao)' AS method
 FROM selected_convenios sc
 LEFT JOIN mcid_bd_gestores.tab_dados_basicos tdb
        ON sc.num_convenio = tdb.cod_convenio_siafi
@@ -345,8 +345,8 @@ UNION ALL
 SELECT 'power_bi_caixa' AS key,
        'Power BI Caixa' AS label,
        'PBI' AS sigla,
-       max(pbi.dte_carga)::date AS updated_at,
-       'max(dte_carga)' AS method
+       max(pbi.data_atualizacao)::date AS updated_at,
+       'max(data_atualizacao)' AS method
 FROM selected_convenios sc
 LEFT JOIN semob.tab_thiago_pbi_caixa_ogu pbi
        ON sc.num_convenio::numeric = pbi.instrumento::numeric
