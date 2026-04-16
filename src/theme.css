@@ -3935,6 +3935,18 @@ body {
     .metrics-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+    .metric-card__header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.45rem;
+        min-height: 0;
+    }
+    .metric-top-right {
+        align-self: flex-start;
+        max-width: 100%;
+        font-size: 0.72rem;
+        padding: 0.22rem 0.45rem;
+    }
     .grid-two {
         grid-template-columns: 1fr;
     }
