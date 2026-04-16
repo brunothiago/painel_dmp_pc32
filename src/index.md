@@ -1583,28 +1583,38 @@ const previousData = previousBaseData.filter(d =>
 );
 ```
 
-<div class="card">
-
+<section class="section-block section-block--geo">
+<header class="section-block__header">
+<span class="section-block__eyebrow">Recorte territorial</span>
 <h2>Distribuição Territorial <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Recorte territorial de todos os contratos atualmente visíveis no painel.<ul><li><strong>Região</strong> — considera todos os contratos após os filtros do topo e dos gráficos gerais</li><li><strong>UF</strong> — abre quando uma região é selecionada</li><li>As seleções passam a valer para os blocos analíticos seguintes</li></ul></span></span></h2>
-
 <p>Clique em uma região para abrir os estados; esse recorte passa a valer para os blocos abaixo.</p>
+</header>
+
+<div class="section-block__body">
+<div class="card card--chapter card--chapter-geo">
 
 ```js
 const selectedGeo = view(makeGeoCascade(preGeoData));
 ```
 
 </div>
+</div>
+</section>
 
 ```js
 const geoScopedData = preGeoData.filter(d => matchesGeoSelection(d, selectedGeo));
 const geoScopedPreviousData = previousData.filter(d => matchesGeoSelection(d, selectedGeo));
 ```
 
-<div class="card card--suspensiva-analysis">
+<section class="section-block section-block--suspensiva">
+<header class="section-block__header">
+<span class="section-block__eyebrow">Análise de contratos</span>
+<h2>Análise de Suspensivas <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Cascata dos contratos com suspensiva ativa, classificados por urgência do vencimento.<ul><li><strong>Vencida</strong> — data de vencimento da suspensiva já passou</li><li><strong>Próximos 30 dias</strong> — vence em até 30 dias corridos</li><li><strong>31–90 dias</strong> — vence entre 31 e 90 dias</li><li><strong>Mais de 90 dias</strong> — vence após 90 dias</li><li><strong>Sem data</strong> — sem data de vencimento registrada</li></ul></span></span></h2>
+<p>Quebra por etapas com foco na urgência de vencimento das suspensivas ativas.</p>
+</header>
 
-<h2>Análise de Suspensivas — Quebra por etapas <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Cascata dos contratos com suspensiva ativa, classificados por urgência do vencimento.<ul><li><strong>Vencida</strong> — data de vencimento da suspensiva já passou</li><li><strong>Próximos 30 dias</strong> — vence em até 30 dias corridos</li><li><strong>31–90 dias</strong> — vence entre 31 e 90 dias</li><li><strong>Mais de 90 dias</strong> — vence após 90 dias</li><li><strong>Sem data</strong> — sem data de vencimento registrada</li></ul></span></span></h2>
-
-<p>Cascata proporcional: do total à urgência de vencimento</p>
+<div class="section-block__body">
+<div class="card card--chapter card--chapter-suspensiva card--suspensiva-analysis">
 
 ```js
 const comSuspData = geoScopedData.filter(d => d.situacao === "Contratado - Suspensiva");
@@ -1632,12 +1642,18 @@ const selectedCascade = view(cascadeChart(geoScopedData));
 ```
 
 </div>
+</div>
+</section>
 
-<div class="card card--licitacao-analysis">
+<section class="section-block section-block--licitacao">
+<header class="section-block__header">
+<span class="section-block__eyebrow">Marco licitatório</span>
+<h2>Análise de Licitação <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Monitoramento dos prazos de licitação para contratos com situação de contrato DMP igual a <strong>Contratado - Normal</strong>.<ul><li><strong>Base do bloco</strong> — considera apenas contratos em <strong>Contratado - Normal (DMP)</strong></li><li><strong>Exceção PC 72</strong> — contratos assinados antes de <strong>21/10/2025</strong> aparecem como <strong>Sem prazo (PC 72)</strong> na publicação</li><li><strong>Sem prazo calculado</strong> — contratos sem publicação e sem classificação de prazo calculada na base</li><li><strong>Prazo de publicação</strong> — até 120 dias corridos conforme a regra calculada da base, exceto os casos da PC 72</li><li><strong>Prazo de homologação</strong> — até 120 dias corridos após a publicação da licitação</li><li><strong>Regra Casa Civil</strong> — publicação, homologação e ordem de serviço devem ocorrer até 01/06/2026</li></ul>Classificação de prazo:<ul><li><strong>Vencida</strong> — prazo já expirou</li><li><strong>Próximos 30 dias</strong> — vence em até 30 dias</li><li><strong>No prazo</strong> — mais de 30 dias restantes</li><li><strong>Sem prazo (PC 72)</strong> — assinatura anterior a 21/10/2025</li><li><strong>Sem prazo calculado</strong> — sem status calculado na base</li></ul></span></span></h2>
+<p>Prazos de publicação e homologação para contratos em <strong>Contratado - Normal (DMP)</strong>, incluindo a exceção da PC 72.</p>
+</header>
 
-<h2>Análise de Licitação — Prazos de publicação e homologação <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Monitoramento dos prazos de licitação para contratos com situação de contrato DMP igual a <strong>Contratado - Normal</strong>.<ul><li><strong>Base do bloco</strong> — considera apenas contratos em <strong>Contratado - Normal (DMP)</strong></li><li><strong>Exceção PC 72</strong> — contratos assinados antes de <strong>21/10/2025</strong> aparecem como <strong>Sem prazo (PC 72)</strong> na publicação</li><li><strong>Sem prazo calculado</strong> — contratos sem publicação e sem classificação de prazo calculada na base</li><li><strong>Prazo de publicação</strong> — até 120 dias corridos conforme a regra calculada da base, exceto os casos da PC 72</li><li><strong>Prazo de homologação</strong> — até 120 dias corridos após a publicação da licitação</li><li><strong>Regra Casa Civil</strong> — publicação, homologação e ordem de serviço devem ocorrer até 01/06/2026</li></ul>Classificação de prazo:<ul><li><strong>Vencida</strong> — prazo já expirou</li><li><strong>Próximos 30 dias</strong> — vence em até 30 dias</li><li><strong>No prazo</strong> — mais de 30 dias restantes</li><li><strong>Sem prazo (PC 72)</strong> — assinatura anterior a 21/10/2025</li><li><strong>Sem prazo calculado</strong> — sem status calculado na base</li></ul></span></span></h2>
-
-<p>O bloco considera contratos em <strong>Contratado - Normal (DMP)</strong>; na publicação, contratos assinados antes de <strong>21/10/2025</strong> aparecem como <strong>Sem prazo (PC 72)</strong>.</p>
+<div class="section-block__body">
+<div class="card card--chapter card--chapter-licitacao card--licitacao-analysis">
 
 <div class="context-action-row">
 
@@ -1657,12 +1673,18 @@ const selectedLicitacaoState = view(renderLicitacaoExplorer(geoScopedData, geoSc
 ```
 
 </div>
+</div>
+</section>
 
-<div class="card card--inicio-obra-analysis">
+<section class="section-block section-block--obra">
+<header class="section-block__header">
+<span class="section-block__eyebrow">Execução física</span>
+<h2>Análise de Início da Obra <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Monitoramento do prazo para início da obra após a emissão da AIO (Autorização de Início de Obra).<ul><li><strong>Prazo</strong> — 10 dias úteis após a data de AIO</li><li><strong>Iniciada no prazo</strong> — obra iniciada dentro do prazo</li><li><strong>Iniciada em atraso</strong> — obra iniciada após o prazo</li><li><strong>Próximos 10 dias úteis</strong> — prazo vence em até 10 dias úteis</li><li><strong>Prazo vencido</strong> — prazo expirou sem início da obra</li><li><strong>No prazo</strong> — mais de 10 dias úteis restantes</li></ul></span></span></h2>
+<p>Prazo após AIO, com destaque para obras iniciadas em atraso e contratos em janela crítica.</p>
+</header>
 
-<h2>Análise de Início da Obra — Prazo após AIO <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Monitoramento do prazo para início da obra após a emissão da AIO (Autorização de Início de Obra).<ul><li><strong>Prazo</strong> — 10 dias úteis após a data de AIO</li><li><strong>Iniciada no prazo</strong> — obra iniciada dentro do prazo</li><li><strong>Iniciada em atraso</strong> — obra iniciada após o prazo</li><li><strong>Próximos 10 dias úteis</strong> — prazo vence em até 10 dias úteis</li><li><strong>Prazo vencido</strong> — prazo expirou sem início da obra</li><li><strong>No prazo</strong> — mais de 10 dias úteis restantes</li></ul></span></span></h2>
-
-<p>Monitoramento do prazo de início da obra: até 10 dias úteis após a data de AIO.</p>
+<div class="section-block__body">
+<div class="card card--chapter card--chapter-obra card--inicio-obra-analysis">
 
 ```js
 const inicioObraBase = geoScopedData.filter(d => d.dt_aio && d.situacao !== "Cancelado ou Distratado");
@@ -1762,10 +1784,18 @@ if (prazoVencidoArr.length > 0 || prox10Arr.length > 0) {
 ```
 
 </div>
+</div>
+</section>
 
-<div class="table-shell">
+<section class="section-block section-block--dados">
+<header class="section-block__header">
+<span class="section-block__eyebrow">Exploração detalhada</span>
+<h2>Base de Dados</h2>
+<p>Camada final de consulta e exportação, já respeitando todos os filtros e seleções aplicados nos blocos anteriores.</p>
+</header>
 
-## Base de Dados
+<div class="section-block__body">
+<div class="table-shell table-shell--terminal">
 
 ```js
 const hasCascadeSelection = Object.values(selectedCascade ?? {}).some(Boolean);
@@ -1911,8 +1941,8 @@ function makeColumnPicker(columns, headers) {
     toggle.classList.toggle("is-open");
   });
 
-  function emit() {
-    wrap.value = columns.filter(c => selected.has(c));
+function emit() {
+  wrap.value = columns.filter(c => selected.has(c));
     wrap.dispatchEvent(new Event("input", { bubbles: true }));
   }
 
@@ -1982,3 +2012,5 @@ display(renderBaseDataTable({
 ```
 
 </div>
+</div>
+</section>

@@ -755,6 +755,126 @@
     min-width: 0;
 }
 
+.section-block {
+    --section-accent: #356c8c;
+    margin: 3.75rem 0 0;
+    padding-top: 1.3rem;
+    border-top: 1px solid rgba(120, 132, 145, 0.22);
+}
+
+.section-block:first-of-type {
+    margin-top: 2rem;
+}
+
+.section-block__header {
+    display: grid;
+    gap: 0.45rem;
+    margin-bottom: 1rem;
+    max-width: 72rem;
+}
+
+.section-block__eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: fit-content;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--section-accent) 10%, white);
+    color: color-mix(in srgb, var(--section-accent) 78%, #1f2937);
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.section-block__header h2 {
+    margin: 0;
+    font-family: var(--font-serif);
+    font-size: clamp(1.55rem, 2.2vw, 2.15rem);
+    line-height: 1.04;
+    color: var(--theme-foreground);
+}
+
+.section-block__header p {
+    margin: 0;
+    max-width: 74ch;
+    color: var(--theme-foreground-muted);
+    font-size: 0.96rem;
+    line-height: 1.5;
+}
+
+.section-block__body {
+    display: grid;
+    gap: 1rem;
+}
+
+.section-block--geo {
+    --section-accent: #356c8c;
+}
+
+.section-block--suspensiva {
+    --section-accent: #b68a2d;
+}
+
+.section-block--licitacao {
+    --section-accent: #2f6b4f;
+}
+
+.section-block--obra {
+    --section-accent: #b85c3d;
+}
+
+.section-block--dados {
+    --section-accent: #5b6470;
+}
+
+.card--chapter,
+.table-shell--terminal {
+    position: relative;
+}
+
+.card--chapter::before,
+.table-shell--terminal::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 5px;
+    border-radius: 22px 22px 0 0;
+    background: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--section-accent) 92%, white),
+        color-mix(in srgb, var(--section-accent) 50%, white)
+    );
+}
+
+.card--chapter {
+    --section-accent: #356c8c;
+    padding-top: 1.35rem;
+}
+
+.card--chapter-geo {
+    --section-accent: #356c8c;
+}
+
+.card--chapter-suspensiva {
+    --section-accent: #b68a2d;
+}
+
+.card--chapter-licitacao {
+    --section-accent: #2f6b4f;
+}
+
+.card--chapter-obra {
+    --section-accent: #b85c3d;
+}
+
+.table-shell--terminal {
+    --section-accent: #5b6470;
+    padding-top: 1.45rem;
+}
+
 .card h2,
 .section-heading h2 {
     margin: 0 0 0.3rem;
@@ -3291,6 +3411,15 @@ body {
     box-shadow: 0 22px 60px rgba(20,31,39,0.06);
     padding: 1.2rem;
     margin: 0 0 1.5rem;
+}
+
+.table-shell--terminal {
+    background:
+        linear-gradient(180deg, rgba(242, 245, 247, 0.92), rgba(255, 255, 255, 0) 88px),
+        #ffffff;
+    border-color: rgba(196, 203, 210, 0.95);
+    box-shadow: 0 26px 68px rgba(20,31,39,0.08);
+    margin-bottom: 0;
 }
 
 .table-scroll {
