@@ -79,8 +79,10 @@ export const LICITACAO_CORES = {
   "Vencida": "#064e3b",
   "Próximos 30 dias": "#fbbf24",
   "No prazo": "#a7f3d0",
-  "Cumpriu": "#10b981",
-  "Não cumpriu": "#064e3b",
+  "Sem prazo (PC 72)": "#cbd5e1",
+  "Sem prazo calculado": "#94a3b8",
+  "Cumpriu o prazo": "#10b981",
+  "Pendente": "#f59e0b",
   "Fora do escopo": "#d1fae5",
 };
 

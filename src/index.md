@@ -106,6 +106,40 @@ function diffLabel(value) {
   return "Sem alteração";
 }
 
+function isSuspensivaRetiradaDmp(d) {
+  return d.situacao_suspensiva === "Suspensiva retirada";
+}
+
+function isComSuspensivaAtiva(d) {
+  return d.situacao === "Contratado - Suspensiva" && !isSuspensivaRetiradaDmp(d);
+}
+
+function isSemSuspensivaDmp(d) {
+  return d.situacao === "Contratado - Normal" || isSuspensivaRetiradaDmp(d);
+}
+
+function isContratoNormalDmp(d) {
+  return d.situacao === "Contratado - Normal";
+}
+
+const LICITACAO_PC72_CORTE = Date.UTC(2025, 9, 21);
+
+function isSemPrazoPc72(d) {
+  return d.dt_assinatura instanceof Date && !isNaN(d.dt_assinatura) && d.dt_assinatura.getTime() < LICITACAO_PC72_CORTE;
+}
+
+function getStatusPubLicitacaoDisplay(d) {
+  if (!d.dt_pub_licitacao && isSemPrazoPc72(d)) return "Sem prazo (PC 72)";
+  if (!d.dt_pub_licitacao && !d.status_pub_licitacao) return "Sem prazo calculado";
+  return d.status_pub_licitacao;
+}
+
+function getStatusHomologLicitacaoDisplay(d) {
+  if (!d.dt_homolog_licitacao && isSemPrazoPc72(d)) return "Sem prazo (PC 72)";
+  if (!d.dt_homolog_licitacao && !d.status_homolog_licitacao) return "Sem prazo calculado";
+  return d.status_homolog_licitacao;
+}
+
 const previousByKey = new Map(previousRawData.map(d => [rowKey(d), d]));
 
 const rawData = rawDataParsed.map(d => {
@@ -869,13 +903,9 @@ function makeCrossFilteredCharts(data, previousBaseData, drillField, drillLabel,
       applyFilter(d, "situacao_suspensiva", suspSel) &&
       applyFilter(d, drillField, drillSel)
     );
-    const isComSuspensiva = (d) =>
-      d.situacao === "Contratado - Suspensiva" &&
-      d.situacao_suspensiva !== "Suspensiva retirada";
+    const isComSuspensiva = (d) => isComSuspensivaAtiva(d);
 
-    const isSemSuspensiva = (d) =>
-      d.situacao === "Contratado - Normal" ||
-      d.situacao_suspensiva === "Suspensiva retirada";
+    const isSemSuspensiva = (d) => isSemSuspensivaDmp(d);
 
     const isContratoRestante = (d) =>
       d.situacao === "Em Contratação" ||
@@ -1039,7 +1069,7 @@ function makeGeoCascade(rows) {
   return wrap;
 }
 
-const LICITACAO_PRAZO_ORDER = ["Vencida", "Próximos 30 dias", "No prazo"];
+const LICITACAO_PRAZO_ORDER = ["Vencida", "Próximos 30 dias", "No prazo", "Sem prazo (PC 72)", "Sem prazo calculado"];
 
 function makeFlowElement(tag, className, text) {
   const node = document.createElement(tag);
@@ -1156,13 +1186,13 @@ function makeFlowConnector(label) {
 function matchesLicitacaoSelection(d, selection = {}) {
   return (
     (selection.pub_etapa == null ||
-      (selection.pub_etapa === "Aguardando publicação" ? !d.dt_pub_licitacao && !!d.dt_retirada_suspensiva : !!d.dt_pub_licitacao)) &&
+      (selection.pub_etapa === "Aguardando publicação" ? !d.dt_pub_licitacao : !!d.dt_pub_licitacao)) &&
     (selection.pub_prazo == null ||
-      (!d.dt_pub_licitacao && d.status_pub_licitacao === selection.pub_prazo)) &&
+      (!d.dt_pub_licitacao && getStatusPubLicitacaoDisplay(d) === selection.pub_prazo)) &&
     (selection.homolog_etapa == null ||
       (selection.homolog_etapa === "Homologação pendente" ? !!d.dt_pub_licitacao && !d.dt_homolog_licitacao : !!d.dt_homolog_licitacao)) &&
     (selection.homolog_prazo == null ||
-      (!!d.dt_pub_licitacao && !d.dt_homolog_licitacao && d.status_homolog_licitacao === selection.homolog_prazo))
+      (!!d.dt_pub_licitacao && !d.dt_homolog_licitacao && getStatusHomologLicitacaoDisplay(d) === selection.homolog_prazo))
   );
 }
 
@@ -1237,8 +1267,8 @@ function renderLicitacaoExplorer(data, previousData) {
     );
     if (active) container.append(active);
 
-    const eligible = data.filter(d => d.dt_retirada_suspensiva && d.situacao !== "Cancelado ou Distratado");
-    const previousEligible = previousData.filter(d => d.dt_retirada_suspensiva && d.situacao !== "Cancelado ou Distratado");
+    const eligible = data.filter(d => isContratoNormalDmp(d));
+    const previousEligible = previousData.filter(d => isContratoNormalDmp(d));
     const flowSource = eligible.filter(d => matchesCasaCivilSelection(d, container.value.casaCivil));
     const cascadeBase = flowSource.filter(d => matchesLicitacaoSelection(d, container.value.flow));
     const casaCivilSource = eligible.filter(d => matchesLicitacaoSelection(d, container.value.flow));
@@ -1246,43 +1276,56 @@ function renderLicitacaoExplorer(data, previousData) {
       .filter(d => matchesLicitacaoSelection(d, container.value.flow))
       .filter(d => matchesCasaCivilSelection(d, container.value.casaCivil));
 
-    const valorSelecionado = cascadeBase.reduce((sum, d) => sum + d.vlr_repasse, 0);
-    const previousValorSelecionado = previousSelecionada.reduce((sum, d) => sum + d.vlr_repasse, 0);
+    const vlr = arr => arr.reduce((s, d) => s + d.vlr_repasse, 0);
+    const valorSelecionado = vlr(cascadeBase);
     const aguardandoPublicacaoSelecionada = cascadeBase.filter(d => !d.dt_pub_licitacao);
     const previousAguardandoPublicacaoSelecionada = previousSelecionada.filter(d => !d.dt_pub_licitacao);
-    const publicacaoVencidaSelecionada = aguardandoPublicacaoSelecionada.filter(d => d.status_pub_licitacao === "Vencida").length;
-    const previousPublicacaoVencidaSelecionada = previousAguardandoPublicacaoSelecionada.filter(d => d.status_pub_licitacao === "Vencida").length;
-    const publicacaoProx30Selecionada = aguardandoPublicacaoSelecionada.filter(d => d.status_pub_licitacao === "Próximos 30 dias").length;
-    const previousPublicacaoProx30Selecionada = previousAguardandoPublicacaoSelecionada.filter(d => d.status_pub_licitacao === "Próximos 30 dias").length;
+    const pubSemPrazoArr = aguardandoPublicacaoSelecionada.filter(d => getStatusPubLicitacaoDisplay(d) === "Sem prazo (PC 72)");
+    const previousPublicacaoSemPrazoSelecionada = previousAguardandoPublicacaoSelecionada.filter(d => getStatusPubLicitacaoDisplay(d) === "Sem prazo (PC 72)").length;
+    const pubVencidaArr = aguardandoPublicacaoSelecionada.filter(d => getStatusPubLicitacaoDisplay(d) === "Vencida");
+    const previousPublicacaoVencidaSelecionada = previousAguardandoPublicacaoSelecionada.filter(d => getStatusPubLicitacaoDisplay(d) === "Vencida").length;
+    const pubProx30Arr = aguardandoPublicacaoSelecionada.filter(d => getStatusPubLicitacaoDisplay(d) === "Próximos 30 dias");
+    const previousPublicacaoProx30Selecionada = previousAguardandoPublicacaoSelecionada.filter(d => getStatusPubLicitacaoDisplay(d) === "Próximos 30 dias").length;
     const publicadasSelecionada = cascadeBase.filter(d => d.dt_pub_licitacao);
     const previousPublicadasSelecionada = previousSelecionada.filter(d => d.dt_pub_licitacao);
     const homologacaoPendenteSelecionada = publicadasSelecionada.filter(d => !d.dt_homolog_licitacao);
     const previousHomologacaoPendenteSelecionada = previousPublicadasSelecionada.filter(d => !d.dt_homolog_licitacao);
-    const homologacaoVencidaSelecionada = homologacaoPendenteSelecionada.filter(d => d.status_homolog_licitacao === "Vencida").length;
-    const previousHomologacaoVencidaSelecionada = previousHomologacaoPendenteSelecionada.filter(d => d.status_homolog_licitacao === "Vencida").length;
-    const homologacaoProx30Selecionada = homologacaoPendenteSelecionada.filter(d => d.status_homolog_licitacao === "Próximos 30 dias").length;
-    const previousHomologacaoProx30Selecionada = previousHomologacaoPendenteSelecionada.filter(d => d.status_homolog_licitacao === "Próximos 30 dias").length;
+    const homologVencidaArr = homologacaoPendenteSelecionada.filter(d => getStatusHomologLicitacaoDisplay(d) === "Vencida");
+    const previousHomologacaoVencidaSelecionada = previousHomologacaoPendenteSelecionada.filter(d => getStatusHomologLicitacaoDisplay(d) === "Vencida").length;
+    const homologProx30Arr = homologacaoPendenteSelecionada.filter(d => getStatusHomologLicitacaoDisplay(d) === "Próximos 30 dias");
+    const previousHomologacaoProx30Selecionada = previousHomologacaoPendenteSelecionada.filter(d => getStatusHomologLicitacaoDisplay(d) === "Próximos 30 dias").length;
+    const publicacaoSemPrazoSelecionada = pubSemPrazoArr.length;
+    const publicacaoVencidaSelecionada = pubVencidaArr.length;
+    const publicacaoProx30Selecionada = pubProx30Arr.length;
+    const homologacaoVencidaSelecionada = homologVencidaArr.length;
+    const homologacaoProx30Selecionada = homologProx30Arr.length;
+
+    const homologAte0106Arr = homologacaoPendenteSelecionada.filter(d =>
+      d.prazo_homolog_licitacao instanceof Date && !isNaN(d.prazo_homolog_licitacao)
+      && d.data_limite_licitacao_casa_civil instanceof Date && !isNaN(d.data_limite_licitacao_casa_civil)
+      && d.prazo_homolog_licitacao.getTime() <= d.data_limite_licitacao_casa_civil.getTime()
+    );
+    const previousHomologAte0106 = previousHomologacaoPendenteSelecionada.filter(d =>
+      d.prazo_homolog_licitacao instanceof Date && !isNaN(d.prazo_homolog_licitacao)
+      && d.data_limite_licitacao_casa_civil instanceof Date && !isNaN(d.data_limite_licitacao_casa_civil)
+      && d.prazo_homolog_licitacao.getTime() <= d.data_limite_licitacao_casa_civil.getTime()
+    ).length;
 
     const cumprimentoCasaCivil = [
-      { status: "Cumpriu", qtd: casaCivilSource.filter(d => d.status_regra_casa_civil === "Cumpriu").length, color: LICITACAO_CORES["Cumpriu"] },
-      { status: "Não cumpriu", qtd: casaCivilSource.filter(d => d.status_regra_casa_civil === "Não cumpriu").length, color: LICITACAO_CORES["Não cumpriu"] },
+      { status: "Cumpriu o prazo", qtd: casaCivilSource.filter(d => d.status_regra_casa_civil === "Cumpriu o prazo").length, color: LICITACAO_CORES["Cumpriu o prazo"] },
+      { status: "Pendente", qtd: casaCivilSource.filter(d => d.status_regra_casa_civil === "Pendente").length, color: LICITACAO_CORES["Pendente"] },
       { status: "Fora do escopo", qtd: casaCivilSource.filter(d => d.status_regra_casa_civil === "Fora do escopo").length, color: LICITACAO_CORES["Fora do escopo"] },
     ].filter(d => d.qtd > 0);
 
     container.append(metricGrid([
-      { label: "Com retirada de suspensiva", value: formatNumber(cascadeBase.length), delta: buildMetricDelta(cascadeBase.length, previousSelecionada.length), tone: "default" },
-      {
-        label: "Valor dos contratos",
-        value: formatCurrencyCompact(valorSelecionado),
-        detail: `${formatNumber(cascadeBase.length)} contrato${cascadeBase.length === 1 ? "" : "s"} no recorte atual da licitação`,
-        delta: buildMetricDelta(valorSelecionado, previousValorSelecionado, formatCurrencyDelta),
-        tone: "blue",
-      },
-      { label: "Aguardando publicação", value: formatNumber(aguardandoPublicacaoSelecionada.length), detail: formatPercent(cascadeBase.length > 0 ? aguardandoPublicacaoSelecionada.length / cascadeBase.length : 0) + " com retirada de suspensiva", delta: buildMetricDelta(aguardandoPublicacaoSelecionada.length, previousAguardandoPublicacaoSelecionada.length), tone: "gold" },
-      { label: "Publicação vencida", value: formatNumber(publicacaoVencidaSelecionada), detail: "prazo de 120 dias após retirada da suspensiva", delta: buildMetricDelta(publicacaoVencidaSelecionada, previousPublicacaoVencidaSelecionada), tone: "red" },
-      { label: "Publicação nos próximos 30 dias", value: formatNumber(publicacaoProx30Selecionada), delta: buildMetricDelta(publicacaoProx30Selecionada, previousPublicacaoProx30Selecionada), tone: "gold" },
-      { label: "Homologação vencida", value: formatNumber(homologacaoVencidaSelecionada), detail: "prazo de 120 dias após publicação", delta: buildMetricDelta(homologacaoVencidaSelecionada, previousHomologacaoVencidaSelecionada), tone: "red" },
-      { label: "Homologação nos próximos 30 dias", value: formatNumber(homologacaoProx30Selecionada), delta: buildMetricDelta(homologacaoProx30Selecionada, previousHomologacaoProx30Selecionada), tone: "gold" },
+      { label: "Contratado - Normal (DMP)", value: formatNumber(cascadeBase.length), topRight: formatCurrencyCompact(valorSelecionado), detail: "no recorte atual da licitação", delta: buildMetricDelta(cascadeBase.length, previousSelecionada.length), tone: "default" },
+      { label: "Aguardando publicação", value: formatNumber(aguardandoPublicacaoSelecionada.length), topRight: formatCurrencyCompact(vlr(aguardandoPublicacaoSelecionada)), detail: formatPercent(cascadeBase.length > 0 ? aguardandoPublicacaoSelecionada.length / cascadeBase.length : 0) + " dos contratos em Contratado - Normal (DMP)", delta: buildMetricDelta(aguardandoPublicacaoSelecionada.length, previousAguardandoPublicacaoSelecionada.length), tone: "gold" },
+      { label: "Sem prazo (PC 72)", value: formatNumber(publicacaoSemPrazoSelecionada), topRight: formatCurrencyCompact(vlr(pubSemPrazoArr)), detail: "assinados antes de 21/10/2025", delta: buildMetricDelta(publicacaoSemPrazoSelecionada, previousPublicacaoSemPrazoSelecionada), tone: "default" },
+      { label: "Publicação vencida", value: formatNumber(publicacaoVencidaSelecionada), topRight: formatCurrencyCompact(vlr(pubVencidaArr)), detail: "prazo de 60 dias após LAE", delta: buildMetricDelta(publicacaoVencidaSelecionada, previousPublicacaoVencidaSelecionada), tone: "red" },
+      { label: "Publicação nos próximos 30 dias", value: formatNumber(publicacaoProx30Selecionada), topRight: formatCurrencyCompact(vlr(pubProx30Arr)), detail: "prazo de 60 dias após LAE", delta: buildMetricDelta(publicacaoProx30Selecionada, previousPublicacaoProx30Selecionada), tone: "gold" },
+      { label: "Homologação vencida", value: formatNumber(homologacaoVencidaSelecionada), topRight: formatCurrencyCompact(vlr(homologVencidaArr)), detail: "prazo de 120 dias após publicação", delta: buildMetricDelta(homologacaoVencidaSelecionada, previousHomologacaoVencidaSelecionada), tone: "red" },
+      { label: "Homologação nos próximos 30 dias", value: formatNumber(homologacaoProx30Selecionada), topRight: formatCurrencyCompact(vlr(homologProx30Arr)), detail: "prazo de 120 dias após publicação", delta: buildMetricDelta(homologacaoProx30Selecionada, previousHomologacaoProx30Selecionada), tone: "gold" },
+      { label: "Homologação até 01/06/2026", value: formatNumber(homologAte0106Arr.length), topRight: formatCurrencyCompact(vlr(homologAte0106Arr)), detail: "prazo limite Casa Civil", delta: buildMetricDelta(homologAte0106Arr.length, previousHomologAte0106), tone: "blue" },
     ]));
 
     if (publicacaoVencidaSelecionada > 0 || publicacaoProx30Selecionada > 0 || homologacaoVencidaSelecionada > 0 || homologacaoProx30Selecionada > 0) {
@@ -1342,7 +1385,7 @@ function renderLicitacaoExplorer(data, previousData) {
     const publicadas = cascadeBase.filter(d => d.dt_pub_licitacao);
     container.append(
       makeFlowLevel(
-        `${cascadeBase.length.toLocaleString("pt-BR")} contratos com retirada de suspensiva`,
+        `${cascadeBase.length.toLocaleString("pt-BR")} contratos em Contratado - Normal (DMP)`,
         "por etapa da publicação da licitação",
         [
           { label: "Aguardando publicação", qtd: aguardandoPublicacao.length, color: LICITACAO_CORES["Aguardando publicação"] },
@@ -1354,14 +1397,14 @@ function renderLicitacaoExplorer(data, previousData) {
     );
 
     if (aguardandoPublicacao.length > 0) {
-      container.append(makeFlowConnector("publicação até 120 dias após a retirada da suspensiva"));
+      container.append(makeFlowConnector("publicação até 120 dias para contratos em Contratado - Normal (DMP)"));
       container.append(
         makeFlowLevel(
           `${aguardandoPublicacao.length.toLocaleString("pt-BR")} contratos aguardando publicação`,
           "por urgência do prazo de publicação",
           LICITACAO_PRAZO_ORDER.map(label => ({
             label,
-            qtd: aguardandoPublicacao.filter(d => d.status_pub_licitacao === label).length,
+            qtd: aguardandoPublicacao.filter(d => getStatusPubLicitacaoDisplay(d) === label).length,
             color: LICITACAO_CORES[label],
           })),
           aguardandoPublicacao.length,
@@ -1396,7 +1439,7 @@ function renderLicitacaoExplorer(data, previousData) {
             "por urgência do prazo de homologação",
             LICITACAO_PRAZO_ORDER.map(label => ({
               label,
-              qtd: homologacaoPendente.filter(d => d.status_homolog_licitacao === label).length,
+              qtd: homologacaoPendente.filter(d => getStatusHomologLicitacaoDisplay(d) === label).length,
               color: LICITACAO_CORES[label],
             })),
             homologacaoPendente.length,
@@ -1529,14 +1572,12 @@ const selectedCascade = view(cascadeChart(geoScopedData));
 
 <div class="card card--licitacao-analysis">
 
-<h2>Análise de Licitação — Prazos de publicação e homologação <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Monitoramento dos prazos de licitação a partir da retirada da suspensiva.<ul><li><strong>Prazo de publicação</strong> — até 120 dias corridos após a data de retirada da suspensiva</li><li><strong>Prazo de homologação</strong> — até 120 dias corridos após a publicação da licitação</li><li><strong>Regra Casa Civil</strong> — publicação, homologação e ordem de serviço devem ocorrer até 31/03/2026</li></ul>Classificação de prazo:<ul><li><strong>Vencida</strong> — prazo já expirou</li><li><strong>Próximos 30 dias</strong> — vence em até 30 dias</li><li><strong>No prazo</strong> — mais de 30 dias restantes</li></ul></span></span></h2>
+<h2>Análise de Licitação — Prazos de publicação e homologação <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Monitoramento dos prazos de licitação para contratos com situação de contrato DMP igual a <strong>Contratado - Normal</strong>.<ul><li><strong>Base do bloco</strong> — considera apenas contratos em <strong>Contratado - Normal (DMP)</strong></li><li><strong>Exceção PC 72</strong> — contratos assinados antes de <strong>21/10/2025</strong> aparecem como <strong>Sem prazo (PC 72)</strong> na publicação</li><li><strong>Sem prazo calculado</strong> — contratos sem publicação e sem classificação de prazo calculada na base</li><li><strong>Prazo de publicação</strong> — até 120 dias corridos conforme a regra calculada da base, exceto os casos da PC 72</li><li><strong>Prazo de homologação</strong> — até 120 dias corridos após a publicação da licitação</li><li><strong>Regra Casa Civil</strong> — publicação, homologação e ordem de serviço devem ocorrer até 01/06/2026</li></ul>Classificação de prazo:<ul><li><strong>Vencida</strong> — prazo já expirou</li><li><strong>Próximos 30 dias</strong> — vence em até 30 dias</li><li><strong>No prazo</strong> — mais de 30 dias restantes</li><li><strong>Sem prazo (PC 72)</strong> — assinatura anterior a 21/10/2025</li><li><strong>Sem prazo calculado</strong> — sem status calculado na base</li></ul></span></span></h2>
 
-<p>Publicação até 120 dias após a retirada da suspensiva; homologação até 120 dias após a publicação da licitação.</p>
+<p>O bloco considera contratos em <strong>Contratado - Normal (DMP)</strong>; na publicação, contratos assinados antes de <strong>21/10/2025</strong> aparecem como <strong>Sem prazo (PC 72)</strong>.</p>
 
 ```js
-const selectedLicitacaoPanel = view(renderLicitacaoExplorer(geoScopedData, geoScopedPreviousData));
-const selectedLicitacao = selectedLicitacaoPanel.flow;
-const selectedCasaCivil = selectedLicitacaoPanel.casaCivil;
+const selectedLicitacaoState = view(renderLicitacaoExplorer(geoScopedData, geoScopedPreviousData));
 ```
 
 </div>
@@ -1660,10 +1701,14 @@ if (inicioPrazoVencidoSelecionado > 0 || inicioProx10Selecionado > 0) {
 
 ```js
 const hasCascadeSelection = Object.values(selectedCascade ?? {}).some(Boolean);
+const selectedLicitacao = selectedLicitacaoState?.flow ?? {};
+const selectedCasaCivil = selectedLicitacaoState?.casaCivil ?? null;
+const hasLicitacaoSelection = Object.values(selectedLicitacao).some(Boolean) || selectedCasaCivil != null;
 const tableData = geoScopedData.filter(d =>
   (!hasCascadeSelection || matchesCascadeSelection(d, selectedCascade)) &&
-  matchesLicitacaoSelection(d, selectedLicitacao) &&
-  matchesCasaCivilSelection(d, selectedCasaCivil) &&
+  (!hasLicitacaoSelection || isContratoNormalDmp(d)) &&
+  (!hasLicitacaoSelection || matchesLicitacaoSelection(d, selectedLicitacao)) &&
+  (!hasLicitacaoSelection || matchesCasaCivilSelection(d, selectedCasaCivil)) &&
   matchesInicioObraSelection(d, selectedInicioObra)
 );
 

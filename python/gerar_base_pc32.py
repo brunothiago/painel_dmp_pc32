@@ -46,6 +46,10 @@ homologacao_licitacao AS (
     FROM mcid_transferegov.tab_licitacao tl
     GROUP BY tl.num_convenio
 ),
+constantes AS (
+    SELECT '2025-10-21'::date AS data_publicacao_pc72,
+           '2026-06-01'::date AS data_limite_licitacao_casa_civil
+),
 base AS (
     SELECT
         tci.cod_tci AS cod_tci_tci,
@@ -120,14 +124,16 @@ base AS (
             ELSE 'ACIMA DE 10 MI'
         END AS faixa_repasse_calc,
 
-        -- prazos calculados | fonte: derivados de tcon + pl + tdb
-        CASE WHEN tcon.dte_retirada_suspensiva IS NOT NULL
-             THEN tcon.dte_retirada_suspensiva + 120
+        -- prazos calculados | fonte: derivados de tcon + pl + tdb (contratos PC 72 — assinados antes de 21/10/2025 — não contam prazo)
+        CASE WHEN tci.dte_assinatura_contrato < c.data_publicacao_pc72 THEN NULL
+             WHEN tdb.dte_primeira_data_lae IS NOT NULL
+             THEN tdb.dte_primeira_data_lae + 60
         END AS prazo_pub_licitacao_calc,
 
-        CASE WHEN pl.dte_publicacao_licitacao IS NOT NULL
+        CASE WHEN tci.dte_assinatura_contrato < c.data_publicacao_pc72 THEN NULL
+             WHEN pl.dte_publicacao_licitacao IS NOT NULL
              THEN pl.dte_publicacao_licitacao + 120
-        END AS prazo_homolog_licitacao_calc,
+        END AS prazo_homolog_licitacao_120d,
 
         -- prazo_inicio_obra: 10 dias uteis apos AIO
         CASE WHEN tdb.dte_aio IS NOT NULL THEN
@@ -141,6 +147,7 @@ base AS (
         END AS prazo_inicio_obra_calc
 
     FROM se_saci.view_mat_carteira_investimento tci
+    CROSS JOIN constantes c
     LEFT JOIN semob.tab_thiago_pbi_caixa_ogu pbi
         ON tci.num_convenio::numeric = pbi.instrumento::numeric
     LEFT JOIN mcid_bd_gestores.tab_dados_basicos tdb
@@ -160,21 +167,25 @@ SELECT
     base.*,
 
     -- data limite casa civil | fonte: constante fixa
-    '2026-06-01'::date AS data_limite_licitacao_casa_civil_const,
+    c.data_limite_licitacao_casa_civil AS data_limite_licitacao_casa_civil_const,
 
     -- status regra casa civil | fonte: derivada de base.dsc_situacao_contrato_mcid + base.dte_publicacao_licitacao + base.dte_homologacao_licitacao + base.dte_inicio_obra_mcid
     CASE
         WHEN dsc_situacao_contrato_mcid_tci = 'Cancelado ou Distratado' THEN 'Fora do escopo'
-        WHEN dte_publicacao_licitacao_tgov IS NOT NULL AND dte_publicacao_licitacao_tgov <= '2026-03-31'
-         AND dte_homologacao_licitacao_tgov IS NOT NULL AND dte_homologacao_licitacao_tgov <= '2026-03-31'
-         AND dte_inicio_obra_mcid_tci IS NOT NULL AND dte_inicio_obra_mcid_tci <= '2026-03-31'
-        THEN 'Cumpriu'
-        ELSE 'Não cumpriu'
+        WHEN dte_publicacao_licitacao_tgov IS NOT NULL AND dte_publicacao_licitacao_tgov <= c.data_limite_licitacao_casa_civil
+         AND dte_homologacao_licitacao_tgov IS NOT NULL AND dte_homologacao_licitacao_tgov <= c.data_limite_licitacao_casa_civil
+         AND dte_inicio_obra_mcid_tci IS NOT NULL AND dte_inicio_obra_mcid_tci <= c.data_limite_licitacao_casa_civil
+        THEN 'Cumpriu o prazo'
+        ELSE 'Pendente'
     END AS status_regra_casa_civil_calc,
 
-    -- status publicacao licitacao | fonte: derivada de base.dte_retirada_suspensiva + base.dsc_situacao_contrato_mcid + base.dte_publicacao_licitacao + base.prazo_pub_licitacao
+    -- prazo homologacao: o maior entre publicacao + 120 dias e a data limite casa civil
+    GREATEST(prazo_homolog_licitacao_120d, c.data_limite_licitacao_casa_civil) AS prazo_homolog_licitacao_calc,
+
+    -- status publicacao licitacao | fonte: derivada de base.dte_primeira_data_lae + base.dsc_situacao_contrato_mcid + base.dte_publicacao_licitacao + base.prazo_pub_licitacao
     CASE
-        WHEN dte_retirada_suspensiva_tgov IS NULL
+        WHEN dte_assinatura_contrato_tci < c.data_publicacao_pc72 THEN NULL
+        WHEN dte_primeira_data_lae_tdb IS NULL
           OR dsc_situacao_contrato_mcid_tci = 'Cancelado ou Distratado' THEN NULL
         WHEN dte_publicacao_licitacao_tgov IS NOT NULL
          AND dte_publicacao_licitacao_tgov <= prazo_pub_licitacao_calc THEN 'Concluída no prazo'
@@ -184,17 +195,18 @@ SELECT
         ELSE 'No prazo'
     END AS status_pub_licitacao_calc,
 
-    -- status homologacao licitacao | fonte: derivada de base.dte_homologacao_licitacao + base.dte_publicacao_licitacao + base.dsc_situacao_contrato_mcid + base.prazo_homolog_licitacao
+    -- status homologacao licitacao | fonte: derivada de base.dte_homologacao_licitacao + base.dte_publicacao_licitacao + base.dsc_situacao_contrato_mcid + GREATEST(pub+120, data_limite_casa_civil)
     CASE
+        WHEN dte_assinatura_contrato_tci < c.data_publicacao_pc72 THEN NULL
         WHEN dte_homologacao_licitacao_tgov IS NOT NULL
          AND dte_publicacao_licitacao_tgov IS NULL THEN 'Inconsistência de base'
         WHEN dte_publicacao_licitacao_tgov IS NULL
           OR dsc_situacao_contrato_mcid_tci = 'Cancelado ou Distratado' THEN NULL
         WHEN dte_homologacao_licitacao_tgov IS NOT NULL
-         AND dte_homologacao_licitacao_tgov <= prazo_homolog_licitacao_calc THEN 'Concluída no prazo'
+         AND dte_homologacao_licitacao_tgov <= GREATEST(prazo_homolog_licitacao_120d, c.data_limite_licitacao_casa_civil) THEN 'Concluída no prazo'
         WHEN dte_homologacao_licitacao_tgov IS NOT NULL THEN 'Concluída em atraso'
-        WHEN CURRENT_DATE > prazo_homolog_licitacao_calc THEN 'Vencida'
-        WHEN (prazo_homolog_licitacao_calc - CURRENT_DATE) <= 30 THEN 'Próximos 30 dias'
+        WHEN CURRENT_DATE > GREATEST(prazo_homolog_licitacao_120d, c.data_limite_licitacao_casa_civil) THEN 'Vencida'
+        WHEN (GREATEST(prazo_homolog_licitacao_120d, c.data_limite_licitacao_casa_civil) - CURRENT_DATE) <= 30 THEN 'Próximos 30 dias'
         ELSE 'No prazo'
     END AS status_homolog_licitacao_calc,
 
@@ -229,6 +241,7 @@ SELECT
     END AS urgencia_suspensiva_calc
 
 FROM base
+CROSS JOIN constantes c
 )
 SELECT
     resultado.*,

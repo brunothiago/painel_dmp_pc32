@@ -2759,6 +2759,8 @@ body {
     padding: 1.1rem 1rem;
     position: relative;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .metric-card::before {
@@ -2775,6 +2777,14 @@ body {
 .metric-card.tone-gold::before  { background: #b45309; }
 .metric-card.tone-blue::before  { background: #356c8c; }
 .metric-card.tone-red::before   { background: #b42318; }
+
+.metric-card__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.9rem;
+    min-height: 2.8rem;
+}
 
 .metric-label {
     margin: 0;
@@ -2875,7 +2885,8 @@ body {
 }
 
 .metric-detail {
-    margin: 0.55rem 0 0;
+    margin: auto 0 0;
+    padding-top: 0.55rem;
     color: var(--theme-foreground-muted);
     font-size: 0.82rem;
 }
@@ -3677,6 +3688,10 @@ body {
     border-radius: 10px;
     overflow: hidden;
     gap: 2px;
+}
+
+.card--licitacao-analysis .casc-bar {
+    gap: 0;
 }
 
 .casc-bar__seg {
