@@ -3444,6 +3444,7 @@ body {
 .base-datatable-block .datatable-filters-row .datatable-filter.col-money {
     width: 7.75rem;
     min-width: 7.75rem;
+    text-align: right;
 }
 
 .base-datatable-block .datatable-filters-row .datatable-filter.col-long {
@@ -3494,6 +3495,7 @@ body {
 .base-datatable-block .col-money {
     width: 7.75rem;
     min-width: 7.75rem;
+    text-align: right;
 }
 
 .base-datatable-block .col-long {

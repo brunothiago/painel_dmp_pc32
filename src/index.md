@@ -38,8 +38,11 @@ function parseBaseRow(d) {
   secretaria: pickField(d, "txt_sigla_secretaria_tci", "txt_sigla_secretaria"),
   fase: pickField(d, "dsc_fase_pac_tci", "dsc_fase_pac"),
   modalidade: pickField(d, "txt_modalidade_tci", "txt_modalidade"),
+  situacao_contrato_tci: pickField(d, "dsc_situacao_contrato_mcid_tci", "dsc_situacao_contrato_mcid"),
+  situacao_contrato_dmp: pickField(d, "situacao_contrato_dmp", "dsc_situacao_contrato_mcid_tci", "dsc_situacao_contrato_mcid"),
   situacao: pickField(d, "situacao_contrato_dmp", "dsc_situacao_contrato_mcid_tci", "dsc_situacao_contrato_mcid"),
   dt_assinatura: parseDate(pickField(d, "dte_assinatura_contrato_tci", "dte_assinatura_contrato")),
+  situacao_suspensiva_dmp: pickField(d, "situacao_da_analise_suspensiva_cgpac", "situacao_da_analise_suspensiva_pbi", "situacao_da_analise_suspensiva"),
   situacao_suspensiva: pickField(d, "situacao_da_analise_suspensiva_cgpac", "situacao_da_analise_suspensiva_pbi", "situacao_da_analise_suspensiva"),
   situacao_suspensiva_pbi: pickField(d, "situacao_da_analise_suspensiva_pbi", "situacao_da_analise_suspensiva"),
   motivo_suspensiva_retirada_cgpac: pickField(d, "motivo_suspensiva_retirada_cgpac"),
@@ -1666,7 +1669,7 @@ const tableData = geoScopedData.filter(d =>
 
 const exportColumns = [
   "_diff_label", "num_convenio", "cod_tci", "secretaria", "regiao", "uf", "municipio", "fase", "modalidade",
-  "situacao", "situacao_suspensiva", "dt_assinatura", "dt_vencimento_suspensiva",
+  "situacao_contrato_tci", "situacao_contrato_dmp", "situacao_suspensiva_pbi", "situacao_suspensiva_dmp", "dt_assinatura", "dt_vencimento_suspensiva",
   "dt_retirada_suspensiva", "dt_lae", "data_limite_licitacao_casa_civil", "status_regra_casa_civil", "prazo_pub_licitacao", "status_pub_licitacao",
   "dt_pub_licitacao", "prazo_homolog_licitacao", "status_homolog_licitacao", "dt_homolog_licitacao",
   "dt_vrpl", "dt_aio", "prazo_inicio_obra", "status_inicio_obra", "dt_inicio_obra", "vlr_repasse",
@@ -1681,31 +1684,61 @@ const exportHeaders = {
   municipio: "Município",
   fase: "Fase",
   modalidade: "Modalidade",
-  situacao: "Situação Contrato",
-  situacao_suspensiva: "Situação Suspensiva DMP",
-  dt_vencimento_suspensiva: "Venc. Suspensiva",
-  dt_retirada_suspensiva: "Retirada Suspensiva",
-  dt_assinatura: "Assinatura",
-  dt_lae: "LAE",
-  data_limite_licitacao_casa_civil: "Data Limite de Licitação Casa Civil",
-  status_regra_casa_civil: "Cumprimento Regra Casa Civil",
-  prazo_pub_licitacao: "Prazo Publicação",
-  status_pub_licitacao: "Status Publicação",
-  dt_pub_licitacao: "Pub. Licitação",
-  prazo_homolog_licitacao: "Prazo Homolog.",
-  status_homolog_licitacao: "Status Homolog.",
-  dt_homolog_licitacao: "Homolog. Licitação",
-  dt_vrpl: "VRPL",
-  dt_aio: "AIO",
-  prazo_inicio_obra: "Prazo Início Obra",
-  status_inicio_obra: "Status Início Obra",
-  dt_inicio_obra: "Início Obra",
-  vlr_repasse: "Repasse (R$)",
+  situacao_contrato_tci: "Situação Contrato (TCI)",
+  situacao_contrato_dmp: "Situação Contrato (DMP)",
+  situacao_suspensiva_pbi: "Situação Suspensiva (PBI)",
+  situacao_suspensiva_dmp: "Situação Suspensiva (DMP)",
+  dt_vencimento_suspensiva: "Venc. Suspensiva (PBI)",
+  dt_retirada_suspensiva: "Retirada Suspensiva (TGOV)",
+  dt_assinatura: "Assinatura (TCI)",
+  dt_lae: "LAE (TDB)",
+  data_limite_licitacao_casa_civil: "Data Limite Licitação (CONST)",
+  status_regra_casa_civil: "Cumprimento Regra Casa Civil (CALC)",
+  prazo_pub_licitacao: "Prazo Publicação (CALC)",
+  status_pub_licitacao: "Status Publicação (CALC)",
+  dt_pub_licitacao: "Pub. Licitação (TGOV)",
+  prazo_homolog_licitacao: "Prazo Homolog. (CALC)",
+  status_homolog_licitacao: "Status Homolog. (CALC)",
+  dt_homolog_licitacao: "Homolog. Licitação (TGOV)",
+  dt_vrpl: "VRPL (TDB)",
+  dt_aio: "AIO (TDB)",
+  prazo_inicio_obra: "Prazo Início Obra (CALC)",
+  status_inicio_obra: "Status Início Obra (CALC)",
+  dt_inicio_obra: "Início Obra (TCI)",
+  vlr_repasse: "Repasse (TCI)",
 };
 
+const defaultSelectedColumns = [
+  "num_convenio",
+  "secretaria",
+  "uf",
+  "municipio",
+  "modalidade",
+  "situacao_contrato_tci",
+  "situacao_contrato_dmp",
+  "situacao_suspensiva_pbi",
+  "situacao_suspensiva_dmp",
+  "dt_assinatura",
+  "dt_vencimento_suspensiva",
+  "dt_retirada_suspensiva",
+  "dt_lae",
+  "data_limite_licitacao_casa_civil",
+  "status_regra_casa_civil",
+  "status_pub_licitacao",
+  "dt_pub_licitacao",
+  "status_homolog_licitacao",
+  "dt_homolog_licitacao",
+  "dt_vrpl",
+  "dt_aio",
+  "status_inicio_obra",
+  "dt_inicio_obra",
+  "vlr_repasse",
+];
+
 function makeColumnPicker(columns, headers) {
-  const selected = new Set(columns);
-  const wrap = Object.assign(document.createElement("div"), { value: [...columns] });
+  const defaultColumns = columns.filter((col) => defaultSelectedColumns.includes(col));
+  const selected = new Set(defaultColumns);
+  const wrap = Object.assign(document.createElement("div"), { value: [...defaultColumns] });
   wrap.className = "col-picker";
 
   const toggle = document.createElement("button");
@@ -1735,7 +1768,7 @@ function makeColumnPicker(columns, headers) {
   const chips = columns.map(col => {
     const chip = document.createElement("button");
     chip.type = "button";
-    chip.className = "col-picker__chip is-active";
+    chip.className = selected.has(col) ? "col-picker__chip is-active" : "col-picker__chip";
     chip.textContent = headers[col] ?? col;
     chip.dataset.col = col;
     chip.addEventListener("click", () => {
@@ -1787,7 +1820,7 @@ const tciLinkCol = d => d
   : "—";
 
 const diffFieldLabels = {
-  situacao: "Situação", situacao_suspensiva: "Sit. Suspensiva DMP", status_suspensiva: "Status Suspensiva",
+  situacao: "Situação", situacao_contrato_tci: "Sit. Contrato TCI", situacao_contrato_dmp: "Sit. Contrato DMP", situacao_suspensiva_pbi: "Sit. Suspensiva PBI", situacao_suspensiva_dmp: "Sit. Suspensiva DMP", status_suspensiva: "Status Suspensiva",
   fase_atual: "Fase Atual", dt_retirada_suspensiva: "Ret. Suspensiva", dt_lae: "LAE",
   dt_pub_licitacao: "Pub. Licitação", dt_homolog_licitacao: "Homolog.", dt_vrpl: "VRPL",
   dt_aio: "AIO", dt_inicio_obra: "Início Obra", vlr_repasse: "Repasse",
@@ -1809,14 +1842,14 @@ display(renderBaseDataTable({
   headers: {
     _diff_label: "Alteração", num_convenio: "Convênio", cod_tci: "TCI", secretaria: "Secretaria",
     regiao: "Região", uf: "UF", municipio: "Município",
-    fase: "Fase", modalidade: "Modalidade", situacao: "Situação Contrato",
-    situacao_suspensiva: "Situação Suspensiva DMP",
-    dt_vencimento_suspensiva: "Venc. Suspensiva", dt_retirada_suspensiva: "Retirada Suspensiva",
-    dt_assinatura: "Assinatura", dt_lae: "LAE", data_limite_licitacao_casa_civil: "Data Limite de Licitação Casa Civil", status_regra_casa_civil: "Cumprimento Regra Casa Civil", prazo_pub_licitacao: "Prazo Publicação",
-    status_pub_licitacao: "Status Publicação", dt_pub_licitacao: "Pub. Licitação",
-    prazo_homolog_licitacao: "Prazo Homolog.", status_homolog_licitacao: "Status Homolog.",
-    dt_homolog_licitacao: "Homolog. Licitação", dt_vrpl: "VRPL", dt_aio: "AIO", prazo_inicio_obra: "Prazo Início Obra", status_inicio_obra: "Status Início Obra",
-    dt_inicio_obra: "Início Obra", vlr_repasse: "Repasse (R$)",
+    fase: "Fase", modalidade: "Modalidade", situacao_contrato_tci: "Situação Contrato (TCI)",
+    situacao_contrato_dmp: "Situação Contrato (DMP)", situacao_suspensiva_pbi: "Situação Suspensiva (PBI)", situacao_suspensiva_dmp: "Situação Suspensiva (DMP)",
+    dt_vencimento_suspensiva: "Venc. Suspensiva (PBI)", dt_retirada_suspensiva: "Retirada Suspensiva (TGOV)",
+    dt_assinatura: "Assinatura (TCI)", dt_lae: "LAE (TDB)", data_limite_licitacao_casa_civil: "Data Limite Licitação (CONST)", status_regra_casa_civil: "Cumprimento Regra Casa Civil (CALC)", prazo_pub_licitacao: "Prazo Publicação (CALC)",
+    status_pub_licitacao: "Status Publicação (CALC)", dt_pub_licitacao: "Pub. Licitação (TGOV)",
+    prazo_homolog_licitacao: "Prazo Homolog. (CALC)", status_homolog_licitacao: "Status Homolog. (CALC)",
+    dt_homolog_licitacao: "Homolog. Licitação (TGOV)", dt_vrpl: "VRPL (TDB)", dt_aio: "AIO (TDB)", prazo_inicio_obra: "Prazo Início Obra (CALC)", status_inicio_obra: "Status Início Obra (CALC)",
+    dt_inicio_obra: "Início Obra (TCI)", vlr_repasse: "Repasse (TCI)",
   },
   formatters: {
     _diff_label: diffCol,

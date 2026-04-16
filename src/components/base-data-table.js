@@ -60,7 +60,16 @@ function exportRowsToXlsx(rows, columns, headers, filePrefix) {
 }
 
 function chooseFilterType(rows, column) {
-  if (column === "fase" || column === "modalidade" || column === "situacao" || column === "situacao_suspensiva") {
+  if (
+    column === "fase" ||
+    column === "modalidade" ||
+    column === "situacao" ||
+    column === "situacao_suspensiva" ||
+    column === "situacao_contrato_tci" ||
+    column === "situacao_contrato_dmp" ||
+    column === "situacao_suspensiva_pbi" ||
+    column === "situacao_suspensiva_dmp"
+  ) {
     return "select";
   }
   const values = [...new Set(rows.map((row) => toPlainText(row[column])).filter(Boolean))];
@@ -79,7 +88,15 @@ function getColumnClassName(column) {
   if (column.startsWith("status_")) return "col-status";
   if (column === "vlr_repasse") return "col-money";
   if (column === "fase" || column === "modalidade") return "col-medium";
-  if (column === "situacao" || column === "situacao_suspensiva" || column === "data_limite_licitacao_casa_civil") return "col-long";
+  if (
+    column === "situacao" ||
+    column === "situacao_suspensiva" ||
+    column === "situacao_contrato_tci" ||
+    column === "situacao_contrato_dmp" ||
+    column === "situacao_suspensiva_pbi" ||
+    column === "situacao_suspensiva_dmp" ||
+    column === "data_limite_licitacao_casa_civil"
+  ) return "col-long";
   return "col-default";
 }
 
@@ -93,7 +110,14 @@ function getColumnWidth(column) {
   if (column.startsWith("status_")) return "160px";
   if (column === "vlr_repasse") return "124px";
   if (column === "fase" || column === "modalidade") return "120px";
-  if (column === "situacao" || column === "situacao_suspensiva") return "176px";
+  if (
+    column === "situacao" ||
+    column === "situacao_suspensiva" ||
+    column === "situacao_contrato_tci" ||
+    column === "situacao_contrato_dmp" ||
+    column === "situacao_suspensiva_pbi" ||
+    column === "situacao_suspensiva_dmp"
+  ) return "176px";
   if (column === "data_limite_licitacao_casa_civil") return "168px";
   return "132px";
 }
