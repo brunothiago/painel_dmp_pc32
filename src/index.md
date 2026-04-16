@@ -1643,41 +1643,33 @@ const selectedInicioObra = view(makeClickableChart(
 ```
 
 ```js
-const countInicioObraStatus = (rows, status) => rows.filter(d => d.status_inicio_obra === status).length;
+const vlrObra = arr => arr.reduce((s, d) => s + d.vlr_repasse, 0);
+const filterObraStatus = (rows, status) => rows.filter(d => d.status_inicio_obra === status);
 const inicioObraSelecionada = inicioObraBase.filter(d => matchesInicioObraSelection(d, selectedInicioObra));
 const previousInicioObraSelecionada = previousInicioObraBase.filter(d => matchesInicioObraSelection(d, selectedInicioObra));
-const valorInicioObraSelecionada = inicioObraSelecionada.reduce((sum, d) => sum + d.vlr_repasse, 0);
-const previousValorInicioObraSelecionada = previousInicioObraSelecionada.reduce((sum, d) => sum + d.vlr_repasse, 0);
-const inicioPrazoVencidoSelecionado = countInicioObraStatus(inicioObraSelecionada, "Prazo vencido");
-const previousInicioPrazoVencidoSelecionado = countInicioObraStatus(previousInicioObraSelecionada, "Prazo vencido");
-const inicioProx10Selecionado = countInicioObraStatus(inicioObraSelecionada, "Próximos 10 dias úteis");
-const previousInicioProx10Selecionado = countInicioObraStatus(previousInicioObraSelecionada, "Próximos 10 dias úteis");
-const inicioNoPrazoSelecionado = countInicioObraStatus(inicioObraSelecionada, "No prazo");
-const previousInicioNoPrazoSelecionado = countInicioObraStatus(previousInicioObraSelecionada, "No prazo");
-const iniciadaNoPrazoSelecionado = countInicioObraStatus(inicioObraSelecionada, "Iniciada no prazo");
-const previousIniciadaNoPrazoSelecionado = countInicioObraStatus(previousInicioObraSelecionada, "Iniciada no prazo");
-const iniciadaEmAtrasoSelecionado = countInicioObraStatus(inicioObraSelecionada, "Iniciada em atraso");
-const previousIniciadaEmAtrasoSelecionado = countInicioObraStatus(previousInicioObraSelecionada, "Iniciada em atraso");
+const iniciadaNoPrazoArr = filterObraStatus(inicioObraSelecionada, "Iniciada no prazo");
+const previousIniciadaNoPrazoArr = filterObraStatus(previousInicioObraSelecionada, "Iniciada no prazo");
+const iniciadaEmAtrasoArr = filterObraStatus(inicioObraSelecionada, "Iniciada em atraso");
+const previousIniciadaEmAtrasoArr = filterObraStatus(previousInicioObraSelecionada, "Iniciada em atraso");
+const prazoVencidoArr = filterObraStatus(inicioObraSelecionada, "Prazo vencido");
+const previousPrazoVencidoArr = filterObraStatus(previousInicioObraSelecionada, "Prazo vencido");
+const prox10Arr = filterObraStatus(inicioObraSelecionada, "Próximos 10 dias úteis");
+const previousProx10Arr = filterObraStatus(previousInicioObraSelecionada, "Próximos 10 dias úteis");
+const noPrazoArr = filterObraStatus(inicioObraSelecionada, "No prazo");
+const previousNoPrazoArr = filterObraStatus(previousInicioObraSelecionada, "No prazo");
 
 display(metricGrid([
-  { label: "Com AIO", value: formatNumber(inicioObraSelecionada.length), delta: buildMetricDelta(inicioObraSelecionada.length, previousInicioObraSelecionada.length), tone: "default" },
-  {
-    label: "Valor dos contratos",
-    value: formatCurrencyCompact(valorInicioObraSelecionada),
-    detail: `${formatNumber(inicioObraSelecionada.length)} contrato${inicioObraSelecionada.length === 1 ? "" : "s"} no recorte atual de início da obra`,
-    delta: buildMetricDelta(valorInicioObraSelecionada, previousValorInicioObraSelecionada, formatCurrencyDelta),
-    tone: "blue",
-  },
-  { label: "Iniciada no prazo", value: formatNumber(iniciadaNoPrazoSelecionado), delta: buildMetricDelta(iniciadaNoPrazoSelecionado, previousIniciadaNoPrazoSelecionado), tone: "green" },
-  { label: "Iniciada em atraso", value: formatNumber(iniciadaEmAtrasoSelecionado), delta: buildMetricDelta(iniciadaEmAtrasoSelecionado, previousIniciadaEmAtrasoSelecionado), tone: "red" },
-  { label: "Prazo vencido", value: formatNumber(inicioPrazoVencidoSelecionado), delta: buildMetricDelta(inicioPrazoVencidoSelecionado, previousInicioPrazoVencidoSelecionado), tone: "red" },
-  { label: "Próximos 10 dias úteis", value: formatNumber(inicioProx10Selecionado), delta: buildMetricDelta(inicioProx10Selecionado, previousInicioProx10Selecionado), tone: "gold" },
-  { label: "No prazo", value: formatNumber(inicioNoPrazoSelecionado), delta: buildMetricDelta(inicioNoPrazoSelecionado, previousInicioNoPrazoSelecionado), tone: "blue" },
+  { label: "Com AIO", value: formatNumber(inicioObraSelecionada.length), topRight: formatCurrencyCompact(vlrObra(inicioObraSelecionada)), delta: buildMetricDelta(inicioObraSelecionada.length, previousInicioObraSelecionada.length), tone: "default" },
+  { label: "Iniciada no prazo", value: formatNumber(iniciadaNoPrazoArr.length), topRight: formatCurrencyCompact(vlrObra(iniciadaNoPrazoArr)), delta: buildMetricDelta(iniciadaNoPrazoArr.length, previousIniciadaNoPrazoArr.length), tone: "green" },
+  { label: "Iniciada em atraso", value: formatNumber(iniciadaEmAtrasoArr.length), topRight: formatCurrencyCompact(vlrObra(iniciadaEmAtrasoArr)), delta: buildMetricDelta(iniciadaEmAtrasoArr.length, previousIniciadaEmAtrasoArr.length), tone: "red" },
+  { label: "Prazo vencido", value: formatNumber(prazoVencidoArr.length), topRight: formatCurrencyCompact(vlrObra(prazoVencidoArr)), delta: buildMetricDelta(prazoVencidoArr.length, previousPrazoVencidoArr.length), tone: "red" },
+  { label: "Próximos 10 dias úteis", value: formatNumber(prox10Arr.length), topRight: formatCurrencyCompact(vlrObra(prox10Arr)), delta: buildMetricDelta(prox10Arr.length, previousProx10Arr.length), tone: "gold" },
+  { label: "No prazo", value: formatNumber(noPrazoArr.length), topRight: formatCurrencyCompact(vlrObra(noPrazoArr)), delta: buildMetricDelta(noPrazoArr.length, previousNoPrazoArr.length), tone: "blue" },
 ]));
 ```
 
 ```js
-if (inicioPrazoVencidoSelecionado > 0 || inicioProx10Selecionado > 0) {
+if (prazoVencidoArr.length > 0 || prox10Arr.length > 0) {
   const alertEl = document.createElement("div");
   alertEl.className = "urgency-alert";
   alertEl.innerHTML = `
@@ -1685,8 +1677,8 @@ if (inicioPrazoVencidoSelecionado > 0 || inicioProx10Selecionado > 0) {
     <div class="urgency-alert__body">
       <div class="urgency-alert__title">Atenção: início de obra com prazo crítico</div>
       <div class="urgency-alert__text">
-        ${inicioPrazoVencidoSelecionado > 0 ? `<strong>${formatNumber(inicioPrazoVencidoSelecionado)}</strong> contrato${inicioPrazoVencidoSelecionado > 1 ? "s" : ""} com <strong>prazo vencido</strong> para início da obra. ` : ""}
-        ${inicioProx10Selecionado > 0 ? `<strong>${formatNumber(inicioProx10Selecionado)}</strong> contrato${inicioProx10Selecionado > 1 ? "s" : ""} nos <strong>próximos 10 dias úteis</strong> para início da obra.` : ""}
+        ${prazoVencidoArr.length > 0 ? `<strong>${formatNumber(prazoVencidoArr.length)}</strong> contrato${prazoVencidoArr.length > 1 ? "s" : ""} com <strong>prazo vencido</strong> para início da obra. ` : ""}
+        ${prox10Arr.length > 0 ? `<strong>${formatNumber(prox10Arr.length)}</strong> contrato${prox10Arr.length > 1 ? "s" : ""} nos <strong>próximos 10 dias úteis</strong> para início da obra.` : ""}
       </div>
     </div>
   `;
