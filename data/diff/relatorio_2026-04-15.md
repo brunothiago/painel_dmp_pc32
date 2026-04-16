@@ -9,9 +9,9 @@
 
 - Entraram na base: **0**
 - Saíram da base: **0**
-- Registros com alguma alteração: **1579**
+- Registros com alguma alteração: **53**
 - Registros com mudança de dados de origem: **53**
-- Registros com mudança apenas em campos derivados/status: **1526**
+- Registros com mudança apenas em campos derivados/status: **0**
 
 ## Mudanças por status
 

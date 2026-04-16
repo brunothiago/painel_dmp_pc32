@@ -105,6 +105,10 @@ TIME_DRIVEN_FIELDS = {
     "urgencia_suspensiva_calc",
 }
 
+IGNORED_CHANGE_FIELDS = {
+    "data_limite_licitacao_casa_civil_const",
+}
+
 SUMMARY_STATUS_FIELDS = [
     "status_suspensiva_calc",
     "status_pub_licitacao_calc",
@@ -223,6 +227,18 @@ def _field_nature(field: str, change_type: str) -> str:
     return "derivado_regra"
 
 
+def _should_ignore_field_change(field: str, previous_value: str, current_value: str) -> bool:
+    if field in IGNORED_CHANGE_FIELDS:
+        return True
+
+    # When the deadline is clamped by the global Casa Civil cutoff on both days,
+    # the mass change is systemic and does not reflect a record-level update.
+    if field == "prazo_homolog_licitacao_calc":
+        return previous_value == "2026-06-01" and current_value == "2026-06-01"
+
+    return False
+
+
 def _row_metadata(row: dict[str, str], key: str) -> dict[str, str]:
     return {
         "num_convenio": _normalize(row.get(KEY_FIELD)) or key,
@@ -338,6 +354,11 @@ def _build_detail_rows(
             field
             for field in comparable_fields
             if _normalize(previous.get(field)) != _normalize(current.get(field))
+            and not _should_ignore_field_change(
+                field,
+                _normalize(previous.get(field)),
+                _normalize(current.get(field)),
+            )
         ]
 
         if not changed_fields:
@@ -432,7 +453,16 @@ def _build_cumulative_diff(history_dir: Path) -> list[dict[str, str]]:
         for key in sorted(prev_keys & curr_keys):
             prev = prev_indexed[key]
             curr = curr_indexed[key]
-            changed = [f for f in comparable if _normalize(prev.get(f)) != _normalize(curr.get(f))]
+            changed = [
+                f
+                for f in comparable
+                if _normalize(prev.get(f)) != _normalize(curr.get(f))
+                and not _should_ignore_field_change(
+                    f,
+                    _normalize(prev.get(f)),
+                    _normalize(curr.get(f)),
+                )
+            ]
             if not changed:
                 continue
             category = _classify_record_change(changed)
