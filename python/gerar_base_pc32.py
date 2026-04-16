@@ -48,30 +48,30 @@ homologacao_licitacao AS (
 ),
 base AS (
     SELECT
-        tci.cod_tci,
-        tci.num_convenio,
-        tci.txt_uf,
-        tci.txt_regiao,
-        tci.cod_ibge_7dig,
-        tci.txt_municipio,
-        tci.dsc_objeto_instrumento,
-        tci.txt_sigla_secretaria,
-        tci.dsc_fase_pac,
-        tci.txt_modalidade,
-        tci.dsc_situacao_contrato_mcid,
-        tci.dte_assinatura_contrato,
-        pbi.situacao_da_analise_suspensiva,
-        pbi.vencimento_da_suspensiva,
-        tcon.dte_retirada_suspensiva,
-        tdb.dte_primeira_data_lae,
-        pl.dte_publicacao_licitacao,
-        hl.dte_homologacao_licitacao,
-        tdb.dte_vrpl,
-        tdb.dte_aio,
-        tci.dte_inicio_obra_mcid,
-        tci.vlr_repasse,
+        tci.cod_tci AS cod_tci_tci,
+        tci.num_convenio AS num_convenio_tci,
+        tci.txt_uf AS txt_uf_tci,
+        tci.txt_regiao AS txt_regiao_tci,
+        tci.cod_ibge_7dig AS cod_ibge_7dig_tci,
+        tci.txt_municipio AS txt_municipio_tci,
+        tci.dsc_objeto_instrumento AS dsc_objeto_instrumento_tci,
+        tci.txt_sigla_secretaria AS txt_sigla_secretaria_tci,
+        tci.dsc_fase_pac AS dsc_fase_pac_tci,
+        tci.txt_modalidade AS txt_modalidade_tci,
+        tci.dsc_situacao_contrato_mcid AS dsc_situacao_contrato_mcid_tci,
+        tci.dte_assinatura_contrato AS dte_assinatura_contrato_tci,
+        pbi.situacao_da_analise_suspensiva AS situacao_da_analise_suspensiva_pbi,
+        pbi.vencimento_da_suspensiva AS vencimento_da_suspensiva_pbi,
+        tcon.dte_retirada_suspensiva AS dte_retirada_suspensiva_tgov,
+        tdb.dte_primeira_data_lae AS dte_primeira_data_lae_tdb,
+        pl.dte_publicacao_licitacao AS dte_publicacao_licitacao_tgov,
+        hl.dte_homologacao_licitacao AS dte_homologacao_licitacao_tgov,
+        tdb.dte_vrpl AS dte_vrpl_tdb,
+        tdb.dte_aio AS dte_aio_tdb,
+        tci.dte_inicio_obra_mcid AS dte_inicio_obra_mcid_tci,
+        tci.vlr_repasse AS vlr_repasse_tci,
 
-        -- status_suspensiva
+        -- status_suspensiva | fonte: derivada de pbi + tcon
         CASE
             WHEN pbi.vencimento_da_suspensiva IS NOT NULL
              AND tcon.dte_retirada_suspensiva IS NULL
@@ -79,20 +79,20 @@ base AS (
             WHEN tcon.dte_retirada_suspensiva IS NOT NULL
             THEN 'RETIRADA'
             ELSE 'SEM SUSPENSIVA'
-        END AS status_suspensiva,
+        END AS status_suspensiva_calc,
 
-        -- flags
-        CASE WHEN pl.dte_publicacao_licitacao IS NOT NULL THEN 'SIM' ELSE 'NAO' END AS flag_publicacao_licitacao,
-        CASE WHEN hl.dte_homologacao_licitacao IS NOT NULL THEN 'SIM' ELSE 'NAO' END AS flag_homologacao_licitacao,
+        -- flags | fonte: derivadas de pl + hl
+        CASE WHEN pl.dte_publicacao_licitacao IS NOT NULL THEN 'SIM' ELSE 'NAO' END AS flag_publicacao_licitacao_calc,
+        CASE WHEN hl.dte_homologacao_licitacao IS NOT NULL THEN 'SIM' ELSE 'NAO' END AS flag_homologacao_licitacao_calc,
 
-        -- ultima_data_relevante (maior data entre os marcos atingidos)
+        -- ultima_data_relevante | fonte: derivada de tci + tdb + hl + pl
         greatest(
             tci.dte_inicio_obra_mcid, tdb.dte_aio, tdb.dte_vrpl,
             hl.dte_homologacao_licitacao, pl.dte_publicacao_licitacao,
             tdb.dte_primeira_data_lae
-        ) AS ultima_data_relevante,
+        ) AS ultima_data_relevante_calc,
 
-        -- fase_atual
+        -- fase_atual | fonte: derivada de tci + tdb + hl + pl + tcon + pbi
         CASE
             WHEN tci.dte_inicio_obra_mcid IS NOT NULL THEN 'OBRA INICIADA'
             WHEN tdb.dte_aio IS NOT NULL THEN 'AIO'
@@ -103,31 +103,31 @@ base AS (
             WHEN tcon.dte_retirada_suspensiva IS NOT NULL THEN 'SUSPENSIVA RETIRADA'
             WHEN pbi.vencimento_da_suspensiva IS NOT NULL THEN 'SUSPENSIVA'
             ELSE 'SEM ANDAMENTO'
-        END AS fase_atual,
+        END AS fase_atual_calc,
 
-        -- intervalos em dias
-        (pl.dte_publicacao_licitacao - tdb.dte_primeira_data_lae) AS dias_ate_publicacao,
-        (hl.dte_homologacao_licitacao - pl.dte_publicacao_licitacao) AS dias_publicacao_ate_homologacao,
-        (tdb.dte_vrpl - hl.dte_homologacao_licitacao) AS dias_homologacao_ate_vrpl,
-        (tdb.dte_aio - tdb.dte_vrpl) AS dias_vrpl_ate_aio,
-        (tci.dte_inicio_obra_mcid - tdb.dte_aio) AS dias_aio_ate_inicio_obra,
+        -- intervalos em dias | fonte: derivados de pl + tdb + hl + tci
+        (pl.dte_publicacao_licitacao - tdb.dte_primeira_data_lae) AS dias_ate_publicacao_calc,
+        (hl.dte_homologacao_licitacao - pl.dte_publicacao_licitacao) AS dias_publicacao_ate_homologacao_calc,
+        (tdb.dte_vrpl - hl.dte_homologacao_licitacao) AS dias_homologacao_ate_vrpl_calc,
+        (tdb.dte_aio - tdb.dte_vrpl) AS dias_vrpl_ate_aio_calc,
+        (tci.dte_inicio_obra_mcid - tdb.dte_aio) AS dias_aio_ate_inicio_obra_calc,
 
-        -- faixa_repasse
+        -- faixa_repasse | fonte: derivada de tci.vlr_repasse
         CASE
             WHEN tci.vlr_repasse < 1000000 THEN 'ATE 1 MI'
             WHEN tci.vlr_repasse < 5000000 THEN '1 A 5 MI'
             WHEN tci.vlr_repasse < 10000000 THEN '5 A 10 MI'
             ELSE 'ACIMA DE 10 MI'
-        END AS faixa_repasse,
+        END AS faixa_repasse_calc,
 
-        -- prazos calculados
+        -- prazos calculados | fonte: derivados de tcon + pl + tdb
         CASE WHEN tcon.dte_retirada_suspensiva IS NOT NULL
              THEN tcon.dte_retirada_suspensiva + 120
-        END AS prazo_pub_licitacao,
+        END AS prazo_pub_licitacao_calc,
 
         CASE WHEN pl.dte_publicacao_licitacao IS NOT NULL
              THEN pl.dte_publicacao_licitacao + 120
-        END AS prazo_homolog_licitacao,
+        END AS prazo_homolog_licitacao_calc,
 
         -- prazo_inicio_obra: 10 dias uteis apos AIO
         CASE WHEN tdb.dte_aio IS NOT NULL THEN
@@ -138,7 +138,7 @@ base AS (
                  interval '1 day'
              ) d
              WHERE EXTRACT(DOW FROM d) NOT IN (0, 6))
-        END AS prazo_inicio_obra
+        END AS prazo_inicio_obra_calc
 
     FROM se_saci.view_mat_carteira_investimento tci
     LEFT JOIN semob.tab_thiago_pbi_caixa_ogu pbi
@@ -154,80 +154,112 @@ base AS (
     WHERE tci.txt_fonte = 'OGU'
       AND tci.dsc_fase_pac = 'NOVO PAC - Seleção'
       AND tci.txt_sigla_secretaria <> 'SNH'
-)
+),
+resultado AS (
 SELECT
     base.*,
 
-    -- data limite casa civil
-    '2026-03-31'::date AS data_limite_licitacao_casa_civil,
+    -- data limite casa civil | fonte: constante fixa
+    '2026-03-31'::date AS data_limite_licitacao_casa_civil_const,
 
-    -- status regra casa civil
+    -- status regra casa civil | fonte: derivada de base.dsc_situacao_contrato_mcid + base.dte_publicacao_licitacao + base.dte_homologacao_licitacao + base.dte_inicio_obra_mcid
     CASE
-        WHEN dsc_situacao_contrato_mcid = 'Cancelado ou Distratado' THEN 'Fora do escopo'
-        WHEN dte_publicacao_licitacao IS NOT NULL AND dte_publicacao_licitacao <= '2026-03-31'
-         AND dte_homologacao_licitacao IS NOT NULL AND dte_homologacao_licitacao <= '2026-03-31'
-         AND dte_inicio_obra_mcid IS NOT NULL AND dte_inicio_obra_mcid <= '2026-03-31'
+        WHEN dsc_situacao_contrato_mcid_tci = 'Cancelado ou Distratado' THEN 'Fora do escopo'
+        WHEN dte_publicacao_licitacao_tgov IS NOT NULL AND dte_publicacao_licitacao_tgov <= '2026-03-31'
+         AND dte_homologacao_licitacao_tgov IS NOT NULL AND dte_homologacao_licitacao_tgov <= '2026-03-31'
+         AND dte_inicio_obra_mcid_tci IS NOT NULL AND dte_inicio_obra_mcid_tci <= '2026-03-31'
         THEN 'Cumpriu'
         ELSE 'Não cumpriu'
-    END AS status_regra_casa_civil,
+    END AS status_regra_casa_civil_calc,
 
-    -- status publicacao licitacao
+    -- status publicacao licitacao | fonte: derivada de base.dte_retirada_suspensiva + base.dsc_situacao_contrato_mcid + base.dte_publicacao_licitacao + base.prazo_pub_licitacao
     CASE
-        WHEN dte_retirada_suspensiva IS NULL
-          OR dsc_situacao_contrato_mcid = 'Cancelado ou Distratado' THEN NULL
-        WHEN dte_publicacao_licitacao IS NOT NULL
-         AND dte_publicacao_licitacao <= prazo_pub_licitacao THEN 'Concluída no prazo'
-        WHEN dte_publicacao_licitacao IS NOT NULL THEN 'Concluída em atraso'
-        WHEN CURRENT_DATE > prazo_pub_licitacao THEN 'Vencida'
-        WHEN (prazo_pub_licitacao - CURRENT_DATE) <= 30 THEN 'Próximos 30 dias'
+        WHEN dte_retirada_suspensiva_tgov IS NULL
+          OR dsc_situacao_contrato_mcid_tci = 'Cancelado ou Distratado' THEN NULL
+        WHEN dte_publicacao_licitacao_tgov IS NOT NULL
+         AND dte_publicacao_licitacao_tgov <= prazo_pub_licitacao_calc THEN 'Concluída no prazo'
+        WHEN dte_publicacao_licitacao_tgov IS NOT NULL THEN 'Concluída em atraso'
+        WHEN CURRENT_DATE > prazo_pub_licitacao_calc THEN 'Vencida'
+        WHEN (prazo_pub_licitacao_calc - CURRENT_DATE) <= 30 THEN 'Próximos 30 dias'
         ELSE 'No prazo'
-    END AS status_pub_licitacao,
+    END AS status_pub_licitacao_calc,
 
-    -- status homologacao licitacao
+    -- status homologacao licitacao | fonte: derivada de base.dte_homologacao_licitacao + base.dte_publicacao_licitacao + base.dsc_situacao_contrato_mcid + base.prazo_homolog_licitacao
     CASE
-        WHEN dte_homologacao_licitacao IS NOT NULL
-         AND dte_publicacao_licitacao IS NULL THEN 'Inconsistência de base'
-        WHEN dte_publicacao_licitacao IS NULL
-          OR dsc_situacao_contrato_mcid = 'Cancelado ou Distratado' THEN NULL
-        WHEN dte_homologacao_licitacao IS NOT NULL
-         AND dte_homologacao_licitacao <= prazo_homolog_licitacao THEN 'Concluída no prazo'
-        WHEN dte_homologacao_licitacao IS NOT NULL THEN 'Concluída em atraso'
-        WHEN CURRENT_DATE > prazo_homolog_licitacao THEN 'Vencida'
-        WHEN (prazo_homolog_licitacao - CURRENT_DATE) <= 30 THEN 'Próximos 30 dias'
+        WHEN dte_homologacao_licitacao_tgov IS NOT NULL
+         AND dte_publicacao_licitacao_tgov IS NULL THEN 'Inconsistência de base'
+        WHEN dte_publicacao_licitacao_tgov IS NULL
+          OR dsc_situacao_contrato_mcid_tci = 'Cancelado ou Distratado' THEN NULL
+        WHEN dte_homologacao_licitacao_tgov IS NOT NULL
+         AND dte_homologacao_licitacao_tgov <= prazo_homolog_licitacao_calc THEN 'Concluída no prazo'
+        WHEN dte_homologacao_licitacao_tgov IS NOT NULL THEN 'Concluída em atraso'
+        WHEN CURRENT_DATE > prazo_homolog_licitacao_calc THEN 'Vencida'
+        WHEN (prazo_homolog_licitacao_calc - CURRENT_DATE) <= 30 THEN 'Próximos 30 dias'
         ELSE 'No prazo'
-    END AS status_homolog_licitacao,
+    END AS status_homolog_licitacao_calc,
 
-    -- status inicio obra
+    -- status inicio obra | fonte: derivada de base.dte_aio + base.dsc_situacao_contrato_mcid + base.dte_inicio_obra_mcid + base.prazo_inicio_obra
     CASE
-        WHEN dte_aio IS NULL
-          OR dsc_situacao_contrato_mcid = 'Cancelado ou Distratado' THEN NULL
-        WHEN dte_inicio_obra_mcid IS NOT NULL
-         AND dte_inicio_obra_mcid <= prazo_inicio_obra THEN 'Iniciada no prazo'
-        WHEN dte_inicio_obra_mcid IS NOT NULL THEN 'Iniciada em atraso'
-        WHEN CURRENT_DATE > prazo_inicio_obra THEN 'Prazo vencido'
+        WHEN dte_aio_tdb IS NULL
+          OR dsc_situacao_contrato_mcid_tci = 'Cancelado ou Distratado' THEN NULL
+        WHEN dte_inicio_obra_mcid_tci IS NOT NULL
+         AND dte_inicio_obra_mcid_tci <= prazo_inicio_obra_calc THEN 'Iniciada no prazo'
+        WHEN dte_inicio_obra_mcid_tci IS NOT NULL THEN 'Iniciada em atraso'
+        WHEN CURRENT_DATE > prazo_inicio_obra_calc THEN 'Prazo vencido'
         WHEN (SELECT COUNT(*)::int
               FROM generate_series(
                   CURRENT_DATE + interval '1 day',
-                  prazo_inicio_obra::timestamp,
+                  prazo_inicio_obra_calc::timestamp,
                   interval '1 day'
               ) d
               WHERE EXTRACT(DOW FROM d) NOT IN (0, 6)) <= 10
         THEN 'Próximos 10 dias úteis'
         ELSE 'No prazo'
-    END AS status_inicio_obra,
+    END AS status_inicio_obra_calc,
 
-    -- urgencia suspensiva (usado no cascade chart)
+    -- urgencia suspensiva (usado no cascade chart) | fonte: derivada de base.dte_retirada_suspensiva + base.dsc_situacao_contrato_mcid + base.vencimento_da_suspensiva
     CASE
-        WHEN dte_retirada_suspensiva IS NOT NULL THEN NULL
-        WHEN dsc_situacao_contrato_mcid = 'Cancelado ou Distratado' THEN NULL
-        WHEN vencimento_da_suspensiva IS NULL THEN 'Sem data'
-        WHEN CURRENT_DATE > vencimento_da_suspensiva THEN 'Vencida'
-        WHEN (vencimento_da_suspensiva - CURRENT_DATE) <= 30 THEN 'Próximos 30 dias'
-        WHEN (vencimento_da_suspensiva - CURRENT_DATE) <= 90 THEN '31–90 dias'
+        WHEN dte_retirada_suspensiva_tgov IS NOT NULL THEN NULL
+        WHEN dsc_situacao_contrato_mcid_tci = 'Cancelado ou Distratado' THEN NULL
+        WHEN vencimento_da_suspensiva_pbi IS NULL THEN 'Sem data'
+        WHEN CURRENT_DATE > vencimento_da_suspensiva_pbi THEN 'Vencida'
+        WHEN (vencimento_da_suspensiva_pbi - CURRENT_DATE) <= 30 THEN 'Próximos 30 dias'
+        WHEN (vencimento_da_suspensiva_pbi - CURRENT_DATE) <= 90 THEN '31–90 dias'
         ELSE 'Mais de 90 dias'
-    END AS urgencia_suspensiva
+    END AS urgencia_suspensiva_calc
 
-FROM base;
+FROM base
+)
+SELECT
+    resultado.*,
+
+    CASE
+        WHEN situacao_da_analise_suspensiva_pbi = 'Suspensiva retirada' THEN 'Suspensiva retirada'
+        WHEN dte_retirada_suspensiva_tgov IS NOT NULL THEN 'Suspensiva retirada'
+        WHEN dte_primeira_data_lae_tdb IS NOT NULL THEN 'Suspensiva retirada'
+        WHEN dte_publicacao_licitacao_tgov IS NOT NULL THEN 'Suspensiva retirada'
+        WHEN status_homolog_licitacao_calc = 'Concluída no prazo' THEN 'Suspensiva retirada'
+        WHEN dte_homologacao_licitacao_tgov IS NOT NULL THEN 'Suspensiva retirada'
+        WHEN dte_vrpl_tdb IS NOT NULL THEN 'Suspensiva retirada'
+        WHEN dte_aio_tdb IS NOT NULL THEN 'Suspensiva retirada'
+        WHEN dte_inicio_obra_mcid_tci IS NOT NULL THEN 'Suspensiva retirada'
+        ELSE situacao_da_analise_suspensiva_pbi
+    END AS situacao_da_analise_suspensiva_cgpac,
+
+    CASE
+        WHEN situacao_da_analise_suspensiva_pbi = 'Suspensiva retirada' THEN 'situacao_da_analise_suspensiva_pbi'
+        WHEN dte_retirada_suspensiva_tgov IS NOT NULL THEN 'dte_retirada_suspensiva_tgov'
+        WHEN dte_primeira_data_lae_tdb IS NOT NULL THEN 'dte_primeira_data_lae_tdb'
+        WHEN dte_publicacao_licitacao_tgov IS NOT NULL THEN 'dte_publicacao_licitacao_tgov'
+        WHEN status_homolog_licitacao_calc = 'Concluída no prazo' THEN 'status_homolog_licitacao_calc'
+        WHEN dte_homologacao_licitacao_tgov IS NOT NULL THEN 'dte_homologacao_licitacao_tgov'
+        WHEN dte_vrpl_tdb IS NOT NULL THEN 'dte_vrpl_tdb'
+        WHEN dte_aio_tdb IS NOT NULL THEN 'dte_aio_tdb'
+        WHEN dte_inicio_obra_mcid_tci IS NOT NULL THEN 'dte_inicio_obra_mcid_tci'
+        ELSE NULL
+    END AS motivo_suspensiva_retirada_cgpac
+
+FROM resultado;
 """)
 
 def main():

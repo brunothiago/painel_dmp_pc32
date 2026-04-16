@@ -19,50 +19,59 @@ const previousRawText = await FileAttachment("data/base_pc_32_previous.csv").tex
 const baseDiffLatest = await FileAttachment("data/base_diff_latest.json").json();
 const dsv = dsvFormat(";");
 
+function pickField(row, ...names) {
+  for (const name of names) {
+    if (row[name] != null && row[name] !== "") return row[name];
+  }
+  return "";
+}
+
 function parseBaseRow(d) {
   return {
-  cod_tci: d.cod_tci,
-  num_convenio: d.num_convenio,
-  uf: d.txt_uf,
-  regiao: d.txt_regiao,
-  cod_ibge: d.cod_ibge_7dig,
-  municipio: d.txt_municipio,
-  objeto: d.dsc_objeto_instrumento,
-  secretaria: d.txt_sigla_secretaria,
-  fase: d.dsc_fase_pac,
-  modalidade: d.txt_modalidade,
-  situacao: d.dsc_situacao_contrato_mcid,
-  dt_assinatura: parseDate(d.dte_assinatura_contrato),
-  situacao_suspensiva: d.situacao_da_analise_suspensiva,
-  dt_vencimento_suspensiva: parseDate(d.vencimento_da_suspensiva),
-  dt_retirada_suspensiva: parseDate(d.dte_retirada_suspensiva),
-  dt_lae: parseDate(d.dte_primeira_data_lae),
-  dt_pub_licitacao: parseDate(d.dte_publicacao_licitacao),
-  dt_homolog_licitacao: parseDate(d.dte_homologacao_licitacao),
-  dt_vrpl: parseDate(d.dte_vrpl),
-  dt_aio: parseDate(d.dte_aio),
-  dt_inicio_obra: parseDate(d.dte_inicio_obra_mcid),
-  vlr_repasse: +d.vlr_repasse || 0,
-  status_suspensiva: d.status_suspensiva,
-  flag_publicacao_licitacao: d.flag_publicacao_licitacao,
-  flag_homologacao_licitacao: d.flag_homologacao_licitacao,
-  ultima_data_relevante: parseDate(d.ultima_data_relevante),
-  fase_atual: d.fase_atual,
-  dias_ate_publicacao: d.dias_ate_publicacao === "" ? null : +d.dias_ate_publicacao,
-  dias_publicacao_ate_homologacao: d.dias_publicacao_ate_homologacao === "" ? null : +d.dias_publicacao_ate_homologacao,
-  dias_homologacao_ate_vrpl: d.dias_homologacao_ate_vrpl === "" ? null : +d.dias_homologacao_ate_vrpl,
-  dias_vrpl_ate_aio: d.dias_vrpl_ate_aio === "" ? null : +d.dias_vrpl_ate_aio,
-  dias_aio_ate_inicio_obra: d.dias_aio_ate_inicio_obra === "" ? null : +d.dias_aio_ate_inicio_obra,
-  faixa_repasse: d.faixa_repasse,
-  prazo_pub_licitacao: parseDate(d.prazo_pub_licitacao),
-  status_pub_licitacao: d.status_pub_licitacao,
-  prazo_homolog_licitacao: parseDate(d.prazo_homolog_licitacao),
-  status_homolog_licitacao: d.status_homolog_licitacao,
-  prazo_inicio_obra: parseDate(d.prazo_inicio_obra),
-  status_inicio_obra: d.status_inicio_obra,
-  data_limite_licitacao_casa_civil: parseDate(d.data_limite_licitacao_casa_civil),
-  status_regra_casa_civil: d.status_regra_casa_civil,
-  urgencia_suspensiva: d.urgencia_suspensiva,
+  cod_tci: pickField(d, "cod_tci_tci", "cod_tci"),
+  num_convenio: pickField(d, "num_convenio_tci", "num_convenio"),
+  uf: pickField(d, "txt_uf_tci", "txt_uf"),
+  regiao: pickField(d, "txt_regiao_tci", "txt_regiao"),
+  cod_ibge: pickField(d, "cod_ibge_7dig_tci", "cod_ibge_7dig"),
+  municipio: pickField(d, "txt_municipio_tci", "txt_municipio"),
+  objeto: pickField(d, "dsc_objeto_instrumento_tci", "dsc_objeto_instrumento"),
+  secretaria: pickField(d, "txt_sigla_secretaria_tci", "txt_sigla_secretaria"),
+  fase: pickField(d, "dsc_fase_pac_tci", "dsc_fase_pac"),
+  modalidade: pickField(d, "txt_modalidade_tci", "txt_modalidade"),
+  situacao: pickField(d, "dsc_situacao_contrato_mcid_tci", "dsc_situacao_contrato_mcid"),
+  dt_assinatura: parseDate(pickField(d, "dte_assinatura_contrato_tci", "dte_assinatura_contrato")),
+  situacao_suspensiva: pickField(d, "situacao_da_analise_suspensiva_cgpac", "situacao_da_analise_suspensiva_pbi", "situacao_da_analise_suspensiva"),
+  situacao_suspensiva_pbi: pickField(d, "situacao_da_analise_suspensiva_pbi", "situacao_da_analise_suspensiva"),
+  motivo_suspensiva_retirada_cgpac: pickField(d, "motivo_suspensiva_retirada_cgpac"),
+  dt_vencimento_suspensiva: parseDate(pickField(d, "vencimento_da_suspensiva_pbi", "vencimento_da_suspensiva")),
+  dt_retirada_suspensiva: parseDate(pickField(d, "dte_retirada_suspensiva_tgov", "dte_retirada_suspensiva")),
+  dt_lae: parseDate(pickField(d, "dte_primeira_data_lae_tdb", "dte_primeira_data_lae")),
+  dt_pub_licitacao: parseDate(pickField(d, "dte_publicacao_licitacao_tgov", "dte_publicacao_licitacao")),
+  dt_homolog_licitacao: parseDate(pickField(d, "dte_homologacao_licitacao_tgov", "dte_homologacao_licitacao")),
+  dt_vrpl: parseDate(pickField(d, "dte_vrpl_tdb", "dte_vrpl")),
+  dt_aio: parseDate(pickField(d, "dte_aio_tdb", "dte_aio")),
+  dt_inicio_obra: parseDate(pickField(d, "dte_inicio_obra_mcid_tci", "dte_inicio_obra_mcid")),
+  vlr_repasse: +pickField(d, "vlr_repasse_tci", "vlr_repasse") || 0,
+  status_suspensiva: pickField(d, "status_suspensiva_calc", "status_suspensiva"),
+  flag_publicacao_licitacao: pickField(d, "flag_publicacao_licitacao_calc", "flag_publicacao_licitacao"),
+  flag_homologacao_licitacao: pickField(d, "flag_homologacao_licitacao_calc", "flag_homologacao_licitacao"),
+  ultima_data_relevante: parseDate(pickField(d, "ultima_data_relevante_calc", "ultima_data_relevante")),
+  fase_atual: pickField(d, "fase_atual_calc", "fase_atual"),
+  dias_ate_publicacao: pickField(d, "dias_ate_publicacao_calc", "dias_ate_publicacao") === "" ? null : +pickField(d, "dias_ate_publicacao_calc", "dias_ate_publicacao"),
+  dias_publicacao_ate_homologacao: pickField(d, "dias_publicacao_ate_homologacao_calc", "dias_publicacao_ate_homologacao") === "" ? null : +pickField(d, "dias_publicacao_ate_homologacao_calc", "dias_publicacao_ate_homologacao"),
+  dias_homologacao_ate_vrpl: pickField(d, "dias_homologacao_ate_vrpl_calc", "dias_homologacao_ate_vrpl") === "" ? null : +pickField(d, "dias_homologacao_ate_vrpl_calc", "dias_homologacao_ate_vrpl"),
+  dias_vrpl_ate_aio: pickField(d, "dias_vrpl_ate_aio_calc", "dias_vrpl_ate_aio") === "" ? null : +pickField(d, "dias_vrpl_ate_aio_calc", "dias_vrpl_ate_aio"),
+  dias_aio_ate_inicio_obra: pickField(d, "dias_aio_ate_inicio_obra_calc", "dias_aio_ate_inicio_obra") === "" ? null : +pickField(d, "dias_aio_ate_inicio_obra_calc", "dias_aio_ate_inicio_obra"),
+  faixa_repasse: pickField(d, "faixa_repasse_calc", "faixa_repasse"),
+  prazo_pub_licitacao: parseDate(pickField(d, "prazo_pub_licitacao_calc", "prazo_pub_licitacao")),
+  status_pub_licitacao: pickField(d, "status_pub_licitacao_calc", "status_pub_licitacao"),
+  prazo_homolog_licitacao: parseDate(pickField(d, "prazo_homolog_licitacao_calc", "prazo_homolog_licitacao")),
+  status_homolog_licitacao: pickField(d, "status_homolog_licitacao_calc", "status_homolog_licitacao"),
+  prazo_inicio_obra: parseDate(pickField(d, "prazo_inicio_obra_calc", "prazo_inicio_obra")),
+  status_inicio_obra: pickField(d, "status_inicio_obra_calc", "status_inicio_obra"),
+  data_limite_licitacao_casa_civil: parseDate(pickField(d, "data_limite_licitacao_casa_civil_const", "data_limite_licitacao_casa_civil")),
+  status_regra_casa_civil: pickField(d, "status_regra_casa_civil_calc", "status_regra_casa_civil"),
+  urgencia_suspensiva: pickField(d, "urgencia_suspensiva_calc", "urgencia_suspensiva"),
   };
 }
 
@@ -725,7 +734,7 @@ function makeCrossFilteredCharts(data, previousBaseData, drillField, drillLabel,
     const suspCard = document.createElement("div");
     suspCard.className = "card";
     suspCard.innerHTML = `
-      <h2>Situação da Análise Suspensiva <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Situação da análise da condição suspensiva registrada no Transferegov.<ul><li><strong>Doc. não enviada p/ análise</strong> — documentação ainda não submetida</li><li><strong>Análise não iniciada / iniciada</strong> — etapas de tramitação interna</li><li><strong>Analisada e aceita</strong> — condição aceita, aguardando retirada</li><li><strong>Suspensiva retirada</strong> — condição satisfeita, contrato liberado</li></ul></span></span></h2>
+      <h2>Situação da Análise Suspensiva CGPAC <span class="rule-tooltip"><button class="rule-tooltip__trigger" aria-label="Regra">?</button><span class="rule-tooltip__content">Situação consolidada da condição suspensiva, priorizando a classificação CGPAC e preservando o valor original do PBI quando não há marco suficiente para considerar retirada.<ul><li><strong>Doc. não enviada p/ análise</strong> — documentação ainda não submetida</li><li><strong>Análise não iniciada / iniciada</strong> — etapas de tramitação interna</li><li><strong>Analisada e aceita</strong> — condição aceita, aguardando retirada</li><li><strong>Suspensiva retirada</strong> — condição satisfeita, contrato liberado ou inferida pelos marcos de andamento</li></ul></span></span></h2>
       <p>Clique em uma barra para filtrar</p>
     `;
     const suspChart = makeClickableChart(
@@ -1655,7 +1664,7 @@ const exportHeaders = {
   fase: "Fase",
   modalidade: "Modalidade",
   situacao: "Situação Contrato",
-  situacao_suspensiva: "Situação Suspensiva",
+  situacao_suspensiva: "Situação Suspensiva CGPAC",
   dt_vencimento_suspensiva: "Venc. Suspensiva",
   dt_retirada_suspensiva: "Retirada Suspensiva",
   dt_assinatura: "Assinatura",
@@ -1760,7 +1769,7 @@ const tciLinkCol = d => d
   : "—";
 
 const diffFieldLabels = {
-  situacao: "Situação", situacao_suspensiva: "Sit. Suspensiva", status_suspensiva: "Status Suspensiva",
+  situacao: "Situação", situacao_suspensiva: "Sit. Suspensiva CGPAC", status_suspensiva: "Status Suspensiva",
   fase_atual: "Fase Atual", dt_retirada_suspensiva: "Ret. Suspensiva", dt_lae: "LAE",
   dt_pub_licitacao: "Pub. Licitação", dt_homolog_licitacao: "Homolog.", dt_vrpl: "VRPL",
   dt_aio: "AIO", dt_inicio_obra: "Início Obra", vlr_repasse: "Repasse",
@@ -1783,7 +1792,7 @@ display(renderBaseDataTable({
     _diff_label: "Alteração", num_convenio: "Convênio", cod_tci: "TCI", secretaria: "Secretaria",
     regiao: "Região", uf: "UF", municipio: "Município",
     fase: "Fase", modalidade: "Modalidade", situacao: "Situação Contrato",
-    situacao_suspensiva: "Situação Suspensiva",
+    situacao_suspensiva: "Situação Suspensiva CGPAC",
     dt_vencimento_suspensiva: "Venc. Suspensiva", dt_retirada_suspensiva: "Retirada Suspensiva",
     dt_assinatura: "Assinatura", dt_lae: "LAE", data_limite_licitacao_casa_civil: "Data Limite de Licitação Casa Civil", status_regra_casa_civil: "Cumprimento Regra Casa Civil", prazo_pub_licitacao: "Prazo Publicação",
     status_pub_licitacao: "Status Publicação", dt_pub_licitacao: "Pub. Licitação",

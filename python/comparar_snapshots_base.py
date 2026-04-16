@@ -9,52 +9,54 @@ from pathlib import Path
 import shutil
 
 
-KEY_FIELD = "num_convenio"
-FALLBACK_KEY_FIELD = "cod_tci"
+KEY_FIELD = "num_convenio_tci"
+FALLBACK_KEY_FIELD = "cod_tci_tci"
 
 SOURCE_FIELDS = {
-    "cod_tci",
-    "num_convenio",
-    "txt_uf",
-    "txt_regiao",
-    "cod_ibge_7dig",
-    "txt_municipio",
-    "dsc_objeto_instrumento",
-    "txt_sigla_secretaria",
-    "dsc_fase_pac",
-    "txt_modalidade",
-    "dsc_situacao_contrato_mcid",
-    "dte_assinatura_contrato",
-    "situacao_da_analise_suspensiva",
-    "vencimento_da_suspensiva",
-    "dte_retirada_suspensiva",
-    "dte_primeira_data_lae",
-    "dte_publicacao_licitacao",
-    "dte_homologacao_licitacao",
-    "dte_vrpl",
-    "dte_aio",
-    "dte_inicio_obra_mcid",
-    "vlr_repasse",
+    "cod_tci_tci",
+    "num_convenio_tci",
+    "txt_uf_tci",
+    "txt_regiao_tci",
+    "cod_ibge_7dig_tci",
+    "txt_municipio_tci",
+    "dsc_objeto_instrumento_tci",
+    "txt_sigla_secretaria_tci",
+    "dsc_fase_pac_tci",
+    "txt_modalidade_tci",
+    "dsc_situacao_contrato_mcid_tci",
+    "dte_assinatura_contrato_tci",
+    "situacao_da_analise_suspensiva_pbi",
+    "situacao_da_analise_suspensiva_cgpac",
+    "vencimento_da_suspensiva_pbi",
+    "dte_retirada_suspensiva_tgov",
+    "dte_primeira_data_lae_tdb",
+    "dte_publicacao_licitacao_tgov",
+    "dte_homologacao_licitacao_tgov",
+    "dte_vrpl_tdb",
+    "dte_aio_tdb",
+    "dte_inicio_obra_mcid_tci",
+    "vlr_repasse_tci",
+    "motivo_suspensiva_retirada_cgpac",
 }
 
 STATUS_FIELDS = {
-    "status_suspensiva",
-    "status_pub_licitacao",
-    "status_homolog_licitacao",
-    "status_inicio_obra",
-    "status_regra_casa_civil",
-    "urgencia_suspensiva",
-    "fase_atual",
+    "status_suspensiva_calc",
+    "status_pub_licitacao_calc",
+    "status_homolog_licitacao_calc",
+    "status_inicio_obra_calc",
+    "status_regra_casa_civil_calc",
+    "urgencia_suspensiva_calc",
+    "fase_atual_calc",
 }
 
 SUMMARY_STATUS_FIELDS = [
-    "status_suspensiva",
-    "status_pub_licitacao",
-    "status_homolog_licitacao",
-    "status_inicio_obra",
-    "status_regra_casa_civil",
-    "urgencia_suspensiva",
-    "fase_atual",
+    "status_suspensiva_calc",
+    "status_pub_licitacao_calc",
+    "status_homolog_licitacao_calc",
+    "status_inicio_obra_calc",
+    "status_regra_casa_civil_calc",
+    "urgencia_suspensiva_calc",
+    "fase_atual_calc",
 ]
 
 
@@ -82,7 +84,11 @@ def _row_key(row: dict[str, str]) -> str:
     """Retorna num_convenio como chave; se vazio, usa cod_tci como fallback."""
     key = (row.get(KEY_FIELD) or "").strip()
     if not key:
+        key = (row.get("num_convenio") or "").strip()
+    if not key:
         key = (row.get(FALLBACK_KEY_FIELD) or "").strip()
+    if not key:
+        key = (row.get("cod_tci") or "").strip()
     return key
 
 
@@ -183,10 +189,10 @@ def _build_detail_rows(
                 "tipo_alteracao": "entrou",
                 "categoria_alteracao": "novo_registro",
                 "num_convenio": key,
-                "cod_tci": _normalize(row.get("cod_tci")),
+                "cod_tci": _normalize(row.get("cod_tci_tci") or row.get("cod_tci")),
                 "campo": "vlr_repasse",
                 "valor_anterior": "",
-                "valor_atual": _normalize(row.get("vlr_repasse")),
+                "valor_atual": _normalize(row.get("vlr_repasse_tci") or row.get("vlr_repasse")),
             }
         )
 
@@ -198,9 +204,9 @@ def _build_detail_rows(
                 "tipo_alteracao": "saiu",
                 "categoria_alteracao": "registro_removido",
                 "num_convenio": key,
-                "cod_tci": _normalize(row.get("cod_tci")),
+                "cod_tci": _normalize(row.get("cod_tci_tci") or row.get("cod_tci")),
                 "campo": "vlr_repasse",
-                "valor_anterior": _normalize(row.get("vlr_repasse")),
+                "valor_anterior": _normalize(row.get("vlr_repasse_tci") or row.get("vlr_repasse")),
                 "valor_atual": "",
             }
         )
@@ -226,7 +232,7 @@ def _build_detail_rows(
         else:
             stats["changed_data_records"] += 1
 
-        cod_tci = _normalize(current.get("cod_tci")) or _normalize(previous.get("cod_tci"))
+        cod_tci = _normalize(current.get("cod_tci_tci") or current.get("cod_tci")) or _normalize(previous.get("cod_tci_tci") or previous.get("cod_tci"))
         for field in changed_fields:
             detail_rows.append(
                 {
