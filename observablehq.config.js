@@ -1,4 +1,26 @@
+import {readFileSync} from "node:fs";
 import {resolveCurrentNavPath} from "./src/lib/navigation.js";
+
+const sourceFreshness = JSON.parse(
+  readFileSync(new URL("./src/data/source_freshness.json", import.meta.url), "utf8")
+);
+
+const footerDateFormatter = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+function formatSnapshotDate(value) {
+  if (!value) return "—";
+  const date = new Date(`${value}T12:00:00Z`);
+  return Number.isNaN(date.getTime()) ? "—" : footerDateFormatter.format(date);
+}
+
+const footerSourceFreshness = (sourceFreshness?.sources ?? []).map(
+  ({label, sigla, updated_at}) => `${label} (${sigla}): ${formatSnapshotDate(updated_at)}`
+);
 
 export default {
   title: "Painel PC 32 — Novo PAC",
@@ -56,6 +78,10 @@ export default {
         <div class="footer-info">
           <p>Acompanhamento dos contratos da <a href="https://www.gov.br/transferegov/pt-br/legislacao/portarias/portaria-conjunta-mgi-mf-cgu-no-32-de-4-de-junho-de-2024" target="_blank" rel="noopener noreferrer">Portaria Conjunta 32</a> — Novo PAC Seleção.</p>
           <p>Fonte: DMP / Ministério das Cidades</p>
+          <div class="sources-update-inline">
+            <p class="sources-update-inline__title">Atualização das fontes</p>
+            ${footerSourceFreshness.map(s => `<p class="sources-update-inline__text">${s}</p>`).join("\n            ")}
+          </div>
         </div>
         <img class="footer-logo" src="./logos/logo_mcid.png" alt="Logo do Ministério das Cidades">
       </div>

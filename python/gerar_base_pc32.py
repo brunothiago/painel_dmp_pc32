@@ -7,6 +7,7 @@ Uso:
 """
 
 import csv
+import json
 import os
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
@@ -29,6 +30,7 @@ CSV_OUTPUT = os.path.join(os.path.dirname(__file__), "..", "src", "data", "base_
 HISTORY_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "historico")
 DIFF_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "diff")
 LATEST_DIFF_JSON = os.path.join(os.path.dirname(__file__), "..", "src", "data", "base_diff_latest.json")
+SOURCE_FRESHNESS_OUTPUT = os.path.join(os.path.dirname(__file__), "..", "src", "data", "source_freshness.json")
 PREVIOUS_CSV_OUTPUT = os.path.join(os.path.dirname(__file__), "..", "src", "data", "base_pc_32_previous.csv")
 FIRST_CSV_OUTPUT = os.path.join(os.path.dirname(__file__), "..", "src", "data", "base_pc_32_first.csv")
 CUMULATIVE_DIFF_OUTPUT = os.path.join(os.path.dirname(__file__), "..", "src", "data", "base_alteracoes.csv")
@@ -296,6 +298,99 @@ SELECT
 FROM resultado;
 """)
 
+SOURCE_FRESHNESS_QUERY = text("""
+WITH selected_convenios AS (
+    SELECT DISTINCT tci.num_convenio
+    FROM se_saci.view_mat_carteira_investimento tci
+    WHERE tci.txt_fonte = 'OGU'
+      AND tci.dsc_fase_pac = 'NOVO PAC - Seleção'
+      AND tci.txt_sigla_secretaria <> 'SNH'
+)
+SELECT 'tci_mcid' AS key,
+       'SACI/ Ministério das Cidades' AS label,
+       'TCI/MCID' AS sigla,
+       max(tci.dte_carga)::date AS updated_at,
+       'max(dte_carga)' AS method
+FROM se_saci.view_mat_carteira_investimento tci
+WHERE tci.txt_fonte = 'OGU'
+  AND tci.dsc_fase_pac = 'NOVO PAC - Seleção'
+  AND tci.txt_sigla_secretaria <> 'SNH'
+
+UNION ALL
+
+SELECT 'transferegov' AS key,
+       'Transferegov' AS label,
+       'TGOV' AS sigla,
+       greatest(max(tc.dte_carga), max(tl.dte_carga))::date AS updated_at,
+       'greatest(max(tab_convenios.dte_carga), max(tab_licitacao.dte_carga))' AS method
+FROM selected_convenios sc
+LEFT JOIN mcid_transferegov.tab_convenios tc
+       ON sc.num_convenio::numeric = tc.num_convenio::numeric
+LEFT JOIN mcid_transferegov.tab_licitacao tl
+       ON sc.num_convenio::numeric = tl.num_convenio::numeric
+
+UNION ALL
+
+SELECT 'bdgestores' AS key,
+       'BDGestores' AS label,
+       'TDB' AS sigla,
+       max(tdb.dte_carga_etl)::date AS updated_at,
+       'max(dte_carga_etl)' AS method
+FROM selected_convenios sc
+LEFT JOIN mcid_bd_gestores.tab_dados_basicos tdb
+       ON sc.num_convenio = tdb.cod_convenio_siafi
+
+UNION ALL
+
+SELECT 'power_bi_caixa' AS key,
+       'Power BI Caixa' AS label,
+       'PBI' AS sigla,
+       max(pbi.dte_carga)::date AS updated_at,
+       'max(dte_carga)' AS method
+FROM selected_convenios sc
+LEFT JOIN semob.tab_thiago_pbi_caixa_ogu pbi
+       ON sc.num_convenio::numeric = pbi.instrumento::numeric
+""")
+
+
+def serialize_date(value):
+    return value.isoformat() if value is not None else None
+
+
+def fetch_source_freshness(conn):
+    rows = conn.execute(SOURCE_FRESHNESS_QUERY).mappings().all()
+    return [
+        {
+            "key": row["key"],
+            "label": row["label"],
+            "sigla": row["sigla"],
+            "updated_at": serialize_date(row["updated_at"]),
+            "method": row["method"],
+            "fallback": False,
+        }
+        for row in rows
+    ]
+
+
+def write_source_freshness(path, snapshot_atual, sources):
+    payload = {
+        "snapshot_atual": snapshot_atual,
+        "sources": sources + [
+            {
+                "key": "dmp_cgpac",
+                "label": "Diretoria de Monitoramento de Projetos / Coordenação-Geral do PAC",
+                "sigla": "DMP/CGPAC",
+                "updated_at": snapshot_atual,
+                "method": "snapshot_atual",
+                "fallback": True,
+                "note": "Fallback: nenhuma tabela/coluna de carga dedicada da DMP/CGPAC foi identificada no pipeline atual.",
+            }
+        ],
+    }
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+
 def main():
     print(f"Conectando em {DATABASE_URL.host}:{DATABASE_URL.port}/{DATABASE_URL.database}...")
     engine = create_engine(DATABASE_URL)
@@ -303,6 +398,7 @@ def main():
     with engine.connect() as conn:
         print(f"Executando: {QUERY}")
         result = conn.execute(QUERY)
+        source_freshness = fetch_source_freshness(conn)
 
         colunas = list(result.keys())
         linhas = result.fetchall()
@@ -327,6 +423,14 @@ def main():
     print(f"Snapshot salvo em {artifacts.snapshot_path}")
     if artifacts.latest_json_path:
         print(f"Resumo consumível pelo painel salvo em {artifacts.latest_json_path}")
+        with open(artifacts.latest_json_path, encoding="utf-8") as f:
+            latest_json = json.load(f)
+        write_source_freshness(
+            SOURCE_FRESHNESS_OUTPUT,
+            latest_json.get("snapshot_atual"),
+            source_freshness,
+        )
+        print(f"Atualização por fonte salva em {SOURCE_FRESHNESS_OUTPUT}")
     if artifacts.previous_csv_path:
         print(f"Snapshot anterior consumível pelo painel salvo em {artifacts.previous_csv_path}")
     if artifacts.first_csv_path:
