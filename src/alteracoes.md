@@ -163,7 +163,7 @@ const mudancasAutomaticas = alteracaoRows.filter(d => d.tipo === "Alterado" && d
 
 const alteracoesMetricGrid = metricGrid([
   { label: "Empreendimentos com alteração", value: formatNumber(totalEmpreendimentos), tone: "default" },
-  { label: "Eventos entre snapshots", value: formatNumber(totalEventos), tone: "blue" },
+  { label: "Campos alterados", value: formatNumber(totalCamposAlterados), tone: "blue" },
   { label: "Mudanças de dado", value: formatNumber(mudancasDeDados), tone: "gold" },
   { label: "Mudanças derivadas", value: formatNumber(mudancasDerivadas), tone: "default" },
   { label: "Mudanças automáticas", value: formatNumber(mudancasAutomaticas), tone: "green" },
@@ -172,7 +172,7 @@ alteracoesMetricGrid.classList.add("metrics-grid--alteracoes");
 display(alteracoesMetricGrid);
 ```
 
-<p class="metric-detail">A tabela abaixo tem ${formatNumber(totalCamposAlterados)} linhas, cada uma representando um campo alterado entre snapshots consecutivos.</p>
+<p class="metric-detail">Cada linha da tabela abaixo representa um campo alterado entre snapshots consecutivos.</p>
 
 <div class="table-shell">
 
