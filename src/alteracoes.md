@@ -156,10 +156,14 @@ display(pageTitleBar);
 ```js
 const totalCamposAlterados = alteracaoRows.length;
 const totalEmpreendimentos = empreendimentosAlterados.size;
-const totalEventos = eventosAlteracao.size;
 const mudancasDeDados = alteracaoRows.filter(d => d.tipo === "Alterado" && d.natureza_raw === "dados_origem").length;
 const mudancasDerivadas = alteracaoRows.filter(d => d.tipo === "Alterado" && d.natureza_raw === "derivado_regra").length;
 const mudancasAutomaticas = alteracaoRows.filter(d => d.tipo === "Alterado" && d.natureza_raw === "derivado_tempo").length;
+const novosRegistros = new Set(
+  alteracaoRows
+    .filter(d => d.tipo === "Novo")
+    .map(d => (d.num_convenio !== "—" ? d.num_convenio : d.cod_tci))
+).size;
 
 const alteracoesMetricGrid = metricGrid([
   { label: "Empreendimentos com alteração", value: formatNumber(totalEmpreendimentos), tone: "default" },
@@ -167,6 +171,7 @@ const alteracoesMetricGrid = metricGrid([
   { label: "Mudanças de dado", value: formatNumber(mudancasDeDados), tone: "gold" },
   { label: "Mudanças derivadas", value: formatNumber(mudancasDerivadas), tone: "default" },
   { label: "Mudanças automáticas", value: formatNumber(mudancasAutomaticas), tone: "green" },
+  { label: "Contratos novos", value: formatNumber(novosRegistros), tone: "red" },
 ]);
 alteracoesMetricGrid.classList.add("metrics-grid--alteracoes");
 display(alteracoesMetricGrid);
