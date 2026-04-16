@@ -231,10 +231,10 @@ def _should_ignore_field_change(field: str, previous_value: str, current_value: 
     if field in IGNORED_CHANGE_FIELDS:
         return True
 
-    # When the deadline is clamped by the global Casa Civil cutoff on both days,
-    # the mass change is systemic and does not reflect a record-level update.
+    # When the deadline touches the global Casa Civil cutoff, the change is
+    # systemic and does not reflect a record-level update worth surfacing here.
     if field == "prazo_homolog_licitacao_calc":
-        return previous_value == "2026-06-01" and current_value == "2026-06-01"
+        return previous_value == "2026-06-01" or current_value == "2026-06-01"
 
     return False
 
