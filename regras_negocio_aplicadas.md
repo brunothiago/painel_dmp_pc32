@@ -4,7 +4,7 @@ Este documento resume as regras implementadas hoje no pipeline de dados e no pai
 
 ## 1. Base de dados
 
-A base publicada em `src/data/base_pc_32.csv` é extraída por `python/gerar_base_pc32.py`.
+A base publicada em `src/data/base_pc_32.csv` é extraída por `python/2_gerar_base_pc32.py`.
 
 Filtros de origem aplicados no SQL:
 

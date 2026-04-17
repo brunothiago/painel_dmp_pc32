@@ -53,7 +53,7 @@ O fluxo oficial de atualização é:
 
 ### `python/executar.bat`
 
-É um atalho manual de conveniência para rodar somente `python/gerar_base_pc32.py` no Windows. Ele não builda o painel, não verifica mudanças e não publica artefatos.
+É um atalho manual de conveniência para rodar somente `python/2_gerar_base_pc32.py` no Windows. Ele não builda o painel, não verifica mudanças e não publica artefatos.
 
 ## Estrutura do Frontend
 

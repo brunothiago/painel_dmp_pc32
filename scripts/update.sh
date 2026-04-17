@@ -50,13 +50,13 @@ DATA_PATHS=(
 log "Iniciando atualização..."
 
 log "Subindo arquivos para o banco..."
-if ! uv run --project python python/sincronizar_xlsx_caixa.py >> "$LOG_FILE" 2>&1; then
+if ! uv run --project python python/1_sincronizar_xlsx_caixa.py >> "$LOG_FILE" 2>&1; then
     log "ERRO: Falha no upload dos arquivos para o banco"
     exit 1
 fi
 log "Upload concluído"
 
-if ! uv run --project python python/gerar_base_pc32.py >> "$LOG_FILE" 2>&1; then
+if ! uv run --project python python/2_gerar_base_pc32.py >> "$LOG_FILE" 2>&1; then
     log "ERRO: Falha na extração de dados"
     exit 1
 fi
