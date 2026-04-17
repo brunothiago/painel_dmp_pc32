@@ -260,7 +260,7 @@ SELECT
         WHEN dte_aio_tdb IS NOT NULL THEN 'Suspensiva retirada'
         WHEN dte_inicio_obra_mcid_tci IS NOT NULL THEN 'Suspensiva retirada'
         ELSE situacao_da_analise_suspensiva_pbi
-    END AS situacao_da_analise_suspensiva_cgpac,
+    END AS situacao_da_analise_suspensiva_dmp,
 
     CASE
         WHEN (
@@ -293,7 +293,7 @@ SELECT
         WHEN dte_aio_tdb IS NOT NULL THEN 'dte_aio_tdb'
         WHEN dte_inicio_obra_mcid_tci IS NOT NULL THEN 'dte_inicio_obra_mcid_tci'
         ELSE NULL
-    END AS motivo_suspensiva_retirada_cgpac
+    END AS motivo_suspensiva_retirada_dmp
 
 FROM resultado;
 """)
@@ -377,13 +377,13 @@ def write_source_freshness(path, snapshot_atual, sources):
         "snapshot_atual": snapshot_atual,
         "sources": sources + [
             {
-                "key": "dmp_cgpac",
-                "label": "Diretoria de Monitoramento de Projetos / Coordenação-Geral do PAC",
-                "sigla": "DMP/CGPAC",
+                "key": "dmp",
+                "label": "Diretoria de Monitoramento de Projetos",
+                "sigla": "DMP",
                 "updated_at": snapshot_atual,
                 "method": "snapshot_atual",
                 "fallback": True,
-                "note": "Fallback: nenhuma tabela/coluna de carga dedicada da DMP/CGPAC foi identificada no pipeline atual.",
+                "note": "Fallback: nenhuma tabela/coluna de carga dedicada da DMP foi identificada no pipeline atual.",
             }
         ],
     }
