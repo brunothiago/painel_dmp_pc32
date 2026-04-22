@@ -1,4 +1,5 @@
 node_modules/
+.claude/
 dist/
 src/.observablehq/cache/
 .DS_Store
