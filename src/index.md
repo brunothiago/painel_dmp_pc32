@@ -44,7 +44,9 @@ function parseBaseRow(d) {
   situacao: pickField(d, "situacao_contrato_dmp", "dsc_situacao_contrato_mcid_tci", "dsc_situacao_contrato_mcid"),
   dt_assinatura: parseDate(pickField(d, "dte_assinatura_contrato_tci", "dte_assinatura_contrato")),
   situacao_suspensiva_dmp: pickField(d, "situacao_da_analise_suspensiva_dmp", "situacao_da_analise_suspensiva_cgpac", "situacao_da_analise_suspensiva_pbi", "situacao_da_analise_suspensiva"),
-  situacao_suspensiva: pickField(d, "situacao_da_analise_suspensiva_dmp", "situacao_da_analise_suspensiva_cgpac", "situacao_da_analise_suspensiva_pbi", "situacao_da_analise_suspensiva"),
+  situacao_suspensiva: pickField(d, "dte_retirada_suspensiva_tgov", "dte_retirada_suspensiva")
+    ? "Suspensiva retirada"
+    : pickField(d, "situacao_da_analise_suspensiva_dmp", "situacao_da_analise_suspensiva_cgpac", "situacao_da_analise_suspensiva_pbi", "situacao_da_analise_suspensiva"),
   situacao_suspensiva_pbi: pickField(d, "situacao_da_analise_suspensiva_pbi", "situacao_da_analise_suspensiva"),
   motivo_suspensiva_retirada_dmp: pickField(d, "motivo_suspensiva_retirada_dmp", "motivo_suspensiva_retirada_cgpac"),
   dt_vencimento_suspensiva: parseDate(pickField(d, "vencimento_da_suspensiva_pbi", "vencimento_da_suspensiva")),
