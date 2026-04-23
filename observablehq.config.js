@@ -23,7 +23,7 @@ const footerSourceFreshness = (sourceFreshness?.sources ?? []).map(
 );
 
 export default {
-  title: "Painel PC 32 — Novo PAC",
+  title: "Painel DMP/MCid - PC 32 Novo PAC",
   root: "src",
   output: "dist",
   theme: [],
