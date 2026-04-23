@@ -76,6 +76,8 @@ base AS (
         tdb.dte_aio AS dte_aio_tdb,
         tci.dte_inicio_obra_mcid AS dte_inicio_obra_mcid_tci,
         tci.vlr_repasse AS vlr_repasse_tci,
+        -- perspectiva de retirada da suspensiva | fonte: se_cgpac."Suspensiva29_04"
+        s29.pespectiva_de_retirada_da_suspensiva AS perspectiva_de_retirada_da_suspensiva,
 
         -- status_suspensiva | fonte: derivada de pbi + tcon
         CASE
@@ -160,6 +162,8 @@ base AS (
         ON tci.num_convenio::numeric = hl.num_convenio::numeric
     LEFT JOIN mcid_transferegov.tab_convenios tcon
         ON tci.num_convenio::numeric = tcon.num_convenio::numeric
+    LEFT JOIN se_cgpac."Suspensiva29_04" s29
+        ON tci.num_convenio::text = s29.instrumento::text
     WHERE tci.txt_fonte = 'OGU'
       AND tci.dsc_fase_pac = 'NOVO PAC - Seleção'
       AND tci.txt_sigla_secretaria <> 'SNH'
