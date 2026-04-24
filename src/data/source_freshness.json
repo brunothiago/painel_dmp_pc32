@@ -29,7 +29,7 @@
       "key": "power_bi_caixa",
       "label": "Power BI Caixa",
       "sigla": "PBI",
-      "updated_at": "2026-04-23",
+      "updated_at": "2026-04-24",
       "method": "max(data_atualizacao)",
       "fallback": false
     },
