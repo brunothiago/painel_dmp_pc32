@@ -5,7 +5,7 @@
       "key": "tci_mcid",
       "label": "SACI/ Ministério das Cidades",
       "sigla": "TCI/MCID",
-      "updated_at": "2026-04-23",
+      "updated_at": "2026-04-24",
       "method": "max(dte_carga)",
       "fallback": false
     },
@@ -13,7 +13,7 @@
       "key": "transferegov",
       "label": "Transferegov",
       "sigla": "TGOV",
-      "updated_at": "2026-04-23",
+      "updated_at": "2026-04-24",
       "method": "greatest(max(tab_convenios.dte_carga), max(tab_licitacao.dte_carga))",
       "fallback": false
     },
