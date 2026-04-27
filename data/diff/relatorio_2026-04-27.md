@@ -9,8 +9,8 @@
 
 - Entraram na base: **0**
 - Saíram da base: **0**
-- Registros com alguma alteração: **65**
-- Registros com mudança de dados de origem: **63**
+- Registros com alguma alteração: **145**
+- Registros com mudança de dados de origem: **143**
 - Registros com mudança apenas em campos derivados/status: **2**
 
 ## Mudanças por status
@@ -21,7 +21,7 @@
 - `status_inicio_obra_calc`: **2**
 - `status_regra_casa_civil_calc`: **0**
 - `urgencia_suspensiva_calc`: **5**
-- `fase_atual_calc`: **11**
+- `fase_atual_calc`: **49**
 
 ## Leitura recomendada
 
