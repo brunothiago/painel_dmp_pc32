@@ -78,6 +78,14 @@ function columnOptions(rows, key) {
     .sort((a, b) => String(a).localeCompare(String(b), "pt-BR"));
 }
 
+function tciLinkCell(value, type) {
+  const tci = value == null ? "" : String(value).trim();
+  if (!tci || tci === "—") return "—";
+  if (type === "sort" || type === "type" || type === "filter") return tci;
+  const href = `https://saci.cidades.gov.br/contratos/${encodeURIComponent(tci)}`;
+  return `<a href="${href}" target="_blank" rel="noopener noreferrer">${tci}</a>`;
+}
+
 export function renderAlteracoesDataTable(rows, invalidation) {
   const headerRow = html`<tr>${tableColumns.map((column) => html`<th>${column.label}</th>`)}</tr>`;
   const filterRow = html`<tr class="datatable-filters-row">${tableColumns.map(() => html`<th></th>`)}</tr>`;
@@ -117,7 +125,7 @@ export function renderAlteracoesDataTable(rows, invalidation) {
         },
       },
       {data: "num_convenio", title: "Convênio", className: "col-convenio", width: "96px"},
-      {data: "cod_tci", title: "TCI", className: "col-tci", width: "84px"},
+      {data: "cod_tci", title: "TCI", className: "col-tci", width: "84px", render: tciLinkCell},
       {data: "uf", title: "UF", className: "col-uf", width: "48px"},
       {data: "secretaria", title: "Secretaria", className: "col-secretaria", width: "64px"},
       {data: "tipo", title: "Tipo", className: "col-tipo", width: "64px"},

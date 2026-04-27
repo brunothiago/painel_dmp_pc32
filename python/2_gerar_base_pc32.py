@@ -152,7 +152,7 @@ base AS (
 
     FROM se_saci.view_mat_carteira_investimento tci
     CROSS JOIN constantes c
-    LEFT JOIN semob.tab_thiago_pbi_caixa_ogu pbi
+    LEFT JOIN se_cgpac.tab_thiago_pbi_caixa_ogu pbi
         ON tci.num_convenio::numeric = pbi.instrumento::numeric
     LEFT JOIN mcid_bd_gestores.tab_dados_basicos tdb
         ON tci.num_convenio = tdb.cod_convenio_siafi
@@ -352,7 +352,7 @@ SELECT 'power_bi_caixa' AS key,
        max(pbi.data_atualizacao)::date AS updated_at,
        'max(data_atualizacao)' AS method
 FROM selected_convenios sc
-LEFT JOIN semob.tab_thiago_pbi_caixa_ogu pbi
+LEFT JOIN se_cgpac.tab_thiago_pbi_caixa_ogu pbi
        ON sc.num_convenio::numeric = pbi.instrumento::numeric
 """)
 

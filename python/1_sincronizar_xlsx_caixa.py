@@ -28,7 +28,7 @@ URLS_E_TABELAS_ENV = [
     ("URL_PBI_CAIXA_FIN", "TAB_BANCO_FIN"),
 ]
 
-SCHEMA_PADRAO = "semob"
+SCHEMA_PADRAO = "se_cgpac"
 
 # Usuários que receberão GRANT nas tabelas carregadas.
 # Configurável via DB_USUARIOS_PERMISSAO no config.env (lista separada por vírgula).
