@@ -8,8 +8,8 @@
   "resumo": {
     "entered": 0,
     "exited": 0,
-    "changed_records": 26,
-    "changed_data_records": 26,
+    "changed_records": 38,
+    "changed_data_records": 38,
     "changed_time_records": 0
   },
   "mudancas_status": {
@@ -18,7 +18,7 @@
     "status_homolog_licitacao_calc": 0,
     "status_inicio_obra_calc": 0,
     "status_regra_casa_civil_calc": 0,
-    "urgencia_suspensiva_calc": 8,
+    "urgencia_suspensiva_calc": 9,
     "fase_atual_calc": 5
   }
 }

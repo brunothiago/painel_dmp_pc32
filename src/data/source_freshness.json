@@ -5,7 +5,7 @@
       "key": "tci_mcid",
       "label": "SACI/ Ministério das Cidades",
       "sigla": "TCI/MCID",
-      "updated_at": "2026-04-27",
+      "updated_at": "2026-04-28",
       "method": "max(dte_carga)",
       "fallback": false
     },
