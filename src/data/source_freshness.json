@@ -1,5 +1,5 @@
 {
-  "snapshot_atual": "2026-04-30",
+  "snapshot_atual": "2026-05-03",
   "sources": [
     {
       "key": "tci_mcid",
@@ -37,7 +37,7 @@
       "key": "dmp",
       "label": "Diretoria de Monitoramento de Projetos",
       "sigla": "DMP",
-      "updated_at": "2026-04-30",
+      "updated_at": "2026-05-03",
       "method": "snapshot_atual",
       "fallback": true,
       "note": "Fallback: nenhuma tabela/coluna de carga dedicada da DMP foi identificada no pipeline atual."
